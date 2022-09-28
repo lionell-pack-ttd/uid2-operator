@@ -21,9 +21,10 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-import {expect, jest, describe, test, beforeEach, afterEach} from '@jest/globals';
-import {sdkWindow, UID2} from '../uid2-sdk-3.0.0';
+import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/globals';
+
 import * as mocks from '../mocks.js';
+import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
 
 let callback;
 let uid2;

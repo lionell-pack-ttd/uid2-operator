@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Copyright (c) 2021 The Trade Desk, Inc
 //
 // Redistribution and use in source and binary forms, with or without
@@ -21,15 +22,16 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-import {expect, jest, describe, test, beforeEach, afterEach} from '@jest/globals';
-import {sdkWindow, UID2} from '../uid2-sdk-3.0.0';
+import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/globals';
+
 import * as mocks from '../mocks.js';
+import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
 
 let callback;
 let uid2: UID2;
 let xhrMock;
 // eslint-disable-next-line no-unused-vars
-let cryptoMock;
+let _cryptoMock;
 
 mocks.setupFakeTime();
 
@@ -37,7 +39,7 @@ beforeEach(() => {
   callback = jest.fn();
   uid2 = new UID2();
   xhrMock = new mocks.XhrMock(sdkWindow);
-  cryptoMock = new mocks.CryptoMock(sdkWindow);
+  _cryptoMock = new mocks.CryptoMock(sdkWindow);
   mocks.setCookieMock(sdkWindow.document);
 });
 
