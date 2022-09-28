@@ -21,9 +21,11 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
+import { Uid2ApiClient } from './uid2ApiClient';
+
 type PromiseOutcome<T> = {
     resolve: (value: T | PromiseLike<T>) => void;
-    reject: (reason: any) => void;
+    reject: (reason: Error) => void;
 }
 
 enum IdentityStatus {
@@ -74,35 +76,34 @@ export class UID2 {
         });
     }
 
-    constructor() {
-
-    }
-        // PUBLIC METHODS
-
     public init(opts) {
         if (this._initCalled) {
             throw new TypeError('Calling init() more than once is not allowed');
         }
 
+        
         if (typeof opts !== 'object' || opts === null) {
             throw new TypeError('opts must be an object');
         } else if (typeof opts.callback !== 'function') {
             throw new TypeError('opts.callback must be a function');
         } else if (typeof opts.refreshRetryPeriod !== 'undefined') {
             if (typeof opts.refreshRetryPeriod !== 'number')
-                throw new TypeError('opts.refreshRetryPeriod must be a number');
+            throw new TypeError('opts.refreshRetryPeriod must be a number');
             else if (opts.refreshRetryPeriod < 1000)
-                throw new RangeError('opts.refreshRetryPeriod must be >= 1000');
+            throw new RangeError('opts.refreshRetryPeriod must be >= 1000');
         }
-
+        
         this._initCalled = true;
         this._opts = opts;
-        let identity = this._opts.identity ? this._opts.identity : this.loadIdentity()
+
+        this._apiClient = new Uid2ApiClient(this._opts.baseUrl ?? "https://prod.uidapi.com", 'uid2-sdk-' + UID2.VERSION);
+
+        const identity = this._opts.identity ? this._opts.identity : this.loadIdentity()
         this.applyIdentity(identity);
-    };
+    }
     public getAdvertisingToken() {
         return this._identity && !this.temporarilyUnavailable() ? this._identity.advertising_token : undefined;
-    };
+    }
     public getAdvertisingTokenAsync() {
         if (!this.initialised()) {
             return new Promise((resolve, reject) => {
@@ -115,10 +116,10 @@ export class UID2 {
         } else {
             return Promise.reject(new Error('identity not available'));
         }
-    };
+    }
     public isLoginRequired() {
         return this.initialised() ? !this._identity : undefined;
-    };
+    }
     public disconnect() {
         this.abort();
         this.removeCookie(UID2.COOKIE_NAME);
@@ -128,18 +129,15 @@ export class UID2 {
         const promises = this._promises;
         this._promises = [];
         promises.forEach(p => p.reject(new Error("disconnect()")));
-    };
+    }
     public abort() {
         this._initCalled = true;
         if (typeof this._refreshTimerId !== 'undefined') {
             clearTimeout(this._refreshTimerId);
             this._refreshTimerId = undefined;
         }
-        if (this._refreshReq) {
-            this._refreshReq.abort();
-            this._refreshReq = undefined;
-        }
-    };
+        if (this._apiClient) this._apiClient.abortActiveRequests();
+    }
 
     // PRIVATE STATE
 
@@ -148,18 +146,22 @@ export class UID2 {
     _identity;
     _lastStatus;
     _refreshTimerId;
-    _refreshReq;
     _refreshVersion;
     _promises: PromiseOutcome<string>[] = [];
+    private _apiClient: Uid2ApiClient;
 
     // PRIVATE METHODS
 
-    private initialised() { return typeof this._lastStatus !== 'undefined'; }
-    private temporarilyUnavailable() { return this._lastStatus === UID2.IdentityStatus.EXPIRED; }
+    private initialised() {
+        return typeof this._lastStatus !== 'undefined'; 
+    }
+    private temporarilyUnavailable() {
+        return this._lastStatus === UID2.IdentityStatus.EXPIRED; 
+    }
 
     private getOptionOrDefault(value, defaultValue) {
         return typeof value === 'undefined' ? defaultValue : value;
-    };
+    }
 
     private setCookie(name, identity) {
         const value = JSON.stringify(identity);
@@ -170,11 +172,11 @@ export class UID2 {
             cookie += ";domain=" + this._opts.cookieDomain;
         }
         document.cookie = cookie;
-    };
-    private removeCookie = (name) => {
+    }
+    private removeCookie(name) {
         document.cookie = name + "=;expires=Tue, 1 Jan 1980 23:59:59 GMT";
-    };
-    private getCookie = (name) => {
+    }
+    private getCookie(name) {
         const docCookie = document.cookie;
         if (docCookie) {
             const payload = docCookie.split('; ').find(row => row.startsWith(name+'='));
@@ -182,9 +184,9 @@ export class UID2 {
                 return decodeURIComponent(payload.split('=')[1]);
             }
         }
-    };
+    }
 
-    private updateStatus = (status, statusText) => {
+    private updateStatus(status, statusText) {
         this._lastStatus = status;
 
         const promises = this._promises;
@@ -205,20 +207,20 @@ export class UID2 {
         } else {
             promises.forEach(p => p.reject(new Error(statusText)));
         }
-    };
-    private setValidIdentity = (identity, status, statusText) => {
+    }
+    private setValidIdentity(identity, status, statusText) {
         this._identity = identity;
         this.setCookie(UID2.COOKIE_NAME, identity);
         this.setRefreshTimer();
         this.updateStatus(status, statusText);
-    };
-    private setFailedIdentity = (status, statusText) => {
+    }
+    private setFailedIdentity(status, statusText) {
         this._identity = undefined;
         this.abort();
         this.removeCookie(UID2.COOKIE_NAME);
         this.updateStatus(status, statusText);
-    };
-    private checkIdentity = (identity) => {
+    }
+    private checkIdentity(identity) {
         if (!identity.advertising_token) {
             throw new InvalidIdentityError("advertising_token is not available or is not valid");
         } else if (!identity.refresh_token) {
@@ -228,8 +230,8 @@ export class UID2 {
         } else {
             this._refreshVersion = 1;
         }
-    };
-    private tryCheckIdentity = (identity) => {
+    }
+    private tryCheckIdentity(identity) {
         try {
             this.checkIdentity(identity);
             return true;
@@ -241,28 +243,28 @@ export class UID2 {
                 throw err;
             }
         }
-    };
-    private setIdentity = (identity, status, statusText) => {
+    }
+    private setIdentity(identity, status, statusText) {
         if (this.tryCheckIdentity(identity)) {
         this.setValidIdentity(identity, status, statusText);
         }
-    };
-    private loadIdentity = () => {
+    }
+    private loadIdentity() {
         const payload = this.getCookie(UID2.COOKIE_NAME);
         if (payload) {
             return JSON.parse(payload);
         }
-    };
+    }
 
-    private enrichIdentity = (identity, now) => {
+    private enrichIdentity(identity, now) {
         return {
             refresh_from: now,
             refresh_expires: now + 7 * 86400 * 1000, // 7 days
             identity_expires: now + 4 * 3600 * 1000, // 4 hours
             ...identity,
         };
-    };
-    private applyIdentity = (identity) => {
+    }
+    private applyIdentity(identity) {
         if (!identity) {
             this.setFailedIdentity(UID2.IdentityStatus.NO_IDENTITY, "Identity not available");
             return;
@@ -294,77 +296,27 @@ export class UID2 {
         }
     }
 
-    private createArrayBuffer = (text) => {
-        let arrayBuffer = new Uint8Array(text.length);
-        for (let i = 0; i < text.length; i++) {
-            arrayBuffer[i] = text.charCodeAt(i);
-        }
-        return arrayBuffer;
-    }
-
-    private refreshToken = (identity) => {
-        const baseUrl = this.getOptionOrDefault(this._opts.baseUrl, "https://prod.uidapi.com");
-        const url = baseUrl + "/v2/token/refresh";
-        const req = new XMLHttpRequest();
-        this._refreshReq = req;
-        req.overrideMimeType("text/plain");
-        req.open("POST", url, true);
-        req.setRequestHeader('X-UID2-Client-Version', 'uid2-sdk-' + UID2.VERSION);
-        req.onreadystatechange = () => {
-            this._refreshReq = undefined;
-            if (req.readyState !== req.DONE) return;
-            try {
-                if(this._refreshVersion === 1 || req.status !== 200) {
-                    const response = JSON.parse(req.responseText);
-                    if (!this.checkResponseStatus(identity, response)) return;
-                    this.setIdentity(response.body, UID2.IdentityStatus.REFRESHED, "Identity refreshed");
-                } else  if(this._refreshVersion === 2) {
-                    let encodeResp = this.createArrayBuffer(atob(req.responseText));
-                    window.crypto.subtle.importKey("raw", this.createArrayBuffer(atob(identity.refresh_response_key)),
-                        { name: "AES-GCM" }, false, ["decrypt"]
-                    ).then((key) => {
-                        //returns the symmetric key
-                        window.crypto.subtle.decrypt({
-                                name: "AES-GCM",
-                                iv: encodeResp.slice(0, 12), //The initialization vector you used to encrypt
-                                tagLength: 128, //The tagLength you used to encrypt (if any)
-                            },
-                            key,
-                            encodeResp.slice(12)
-                        ).then((decrypted) => {
-                            const decryptedResponse = String.fromCharCode.apply(String, new Uint8Array(decrypted));
-                            const response = JSON.parse(decryptedResponse);
-                            if (!this.checkResponseStatus(identity, response)) return;
-                            this.setIdentity(response.body, UID2.IdentityStatus.REFRESHED, "Identity refreshed");
-                        })
-                    })
+    private refreshToken(identity) {
+        this._apiClient.callRefreshApi(identity)
+            .then((response) => {
+                    switch (response.status) {
+                        case 'success':
+                            this.setIdentity(response.identity, UID2.IdentityStatus.REFRESHED, "Identity refreshed");
+                            break;
+                        case 'optout':
+                            this.setFailedIdentity(UID2.IdentityStatus.OPTOUT, "User opted out");
+                            break;
+                        case 'expired_token':
+                            this.setFailedIdentity(UID2.IdentityStatus.REFRESH_EXPIRED, "Refresh token expired");
+                            break;
+                    }
+                },
+                (reason) => {
+                    this.handleRefreshFailure(identity, reason.message);
                 }
-            } catch (err) {
-                this.handleRefreshFailure(identity, err.message);
-            }
-        };
-        req.send(identity.refresh_token);
-    };
-    private checkResponseStatus = (identity, response) => {
-        if (typeof response !== 'object' || response === null) {
-            throw new TypeError("refresh response is not an object");
-        }
-        if (response.status === "optout") {
-            this.setFailedIdentity(UID2.IdentityStatus.OPTOUT, "User opted out");
-            return false;
-        } else if (response.status === "expired_token") {
-            this.setFailedIdentity(UID2.IdentityStatus.REFRESH_EXPIRED, "Refresh token expired");
-            return false;
-        } else if (response.status === "success") {
-            if (typeof response.body === 'object' && response.body !== null) {
-                return true;
-            }
-            throw new TypeError("refresh response object does not have a body");
-        } else {
-            throw new TypeError("unexpected response status: " + response.status);
-        }
-    };
-    private handleRefreshFailure = (identity, errorMessage) => {
+            );
+    }
+    private handleRefreshFailure(identity, errorMessage) {
         const now = Date.now();
         if (identity.refresh_expires <= now) {
             this.setFailedIdentity(UID2.IdentityStatus.REFRESH_EXPIRED, "Refresh expired; token refresh failed: " + errorMessage);
@@ -375,14 +327,14 @@ export class UID2 {
         } else {
             this.setIdentity(identity, UID2.IdentityStatus.ESTABLISHED, "Identity established; token refresh failed: " + errorMessage)
         }
-    };
-    private setRefreshTimer = () => {
+    }
+    private setRefreshTimer() {
         const timeout = this.getOptionOrDefault(this._opts.refreshRetryPeriod, UID2.DEFAULT_REFRESH_RETRY_PERIOD_MS);
         this._refreshTimerId = setTimeout(() => {
             if (this.isLoginRequired()) return;
             this.applyIdentity(this.loadIdentity());
         }, timeout);
-    };
+    }
 
 
 }
@@ -390,6 +342,7 @@ export class UID2 {
 
 declare global {
     interface Window {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         googletag: any;
         __uid2: UID2;
     }

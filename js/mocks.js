@@ -181,5 +181,4 @@ module.exports = {
   getEuidCookie: getEuidCookie,
   makeIdentityV1: makeIdentityV1,
   makeIdentityV2: makeIdentityV2,
-  setupFakeTime
 };

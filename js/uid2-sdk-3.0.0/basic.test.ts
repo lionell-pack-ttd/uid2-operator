@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-empty-function */
 // Copyright (c) 2021 The Trade Desk, Inc
 //
 // Redistribution and use in source and binary forms, with or without
@@ -21,9 +23,10 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-import {expect, jest, describe, test, beforeEach, afterEach} from '@jest/globals';
-import {sdkWindow, UID2} from '../uid2-sdk-3.0.0';
+import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/globals';
+
 import * as mocks from '../mocks.js';
+import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
 
 let callback;
 let uid2: UID2;
@@ -243,9 +246,9 @@ describe('when initialised without identity', () => {
     });
 
     test('should initiate token refresh', () => {
-      let cryptoMock = new mocks.CryptoMock(sdkWindow);
+      const cryptoMock = new mocks.CryptoMock(sdkWindow);
       expect(xhrMock.send).toHaveBeenCalledTimes(1);
-      let url = "https://prod.uidapi.com/v2/token/refresh";
+      const url = "https://prod.uidapi.com/v2/token/refresh";
       expect(xhrMock.open).toHaveBeenLastCalledWith("POST", url, true);
       expect(xhrMock.send).toHaveBeenLastCalledWith(identity.refresh_token);
       xhrMock.onreadystatechange();
@@ -272,9 +275,9 @@ describe('when initialised without identity', () => {
     });
 
     test('should initiate token refresh', () => {
-      let cryptoMock = new mocks.CryptoMock(sdkWindow);
+      const cryptoMock = new mocks.CryptoMock(sdkWindow);
       expect(xhrMock.send).toHaveBeenCalledTimes(1);
-      let url = "https://prod.uidapi.com/v2/token/refresh";
+      const url = "https://prod.uidapi.com/v2/token/refresh";
       expect(xhrMock.open).toHaveBeenLastCalledWith("POST", url, true);
       expect(xhrMock.send).toHaveBeenLastCalledWith(identity.refresh_token);
       xhrMock.onreadystatechange();

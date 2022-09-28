@@ -21,22 +21,22 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-import {expect, jest, describe, test, beforeEach, afterEach} from '@jest/globals';
-import {sdkWindow, UID2} from '../uid2-sdk-3.0.0';
+import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/globals';
+
 import * as mocks from '../mocks.js';
+import { UID2 } from '../uid2-sdk-3.0.0';
 
 let callback;
 let uid2;
 let xhrMock;
-// eslint-disable-next-line no-unused-vars
-let cryptoMock;
+let _cryptoMock;
 mocks.setupFakeTime();
 
 beforeEach(() => {
   callback = jest.fn();
   uid2 = new UID2();
   xhrMock = new mocks.XhrMock(window);
-  cryptoMock = new mocks.CryptoMock(window);
+  _cryptoMock = new mocks.CryptoMock(window);
   mocks.setCookieMock(window.document);
 });
 
@@ -100,7 +100,7 @@ describe('when getAdvertisingTokenAsync is called before init', () => {
       uid2.init({ callback: callback, identity: originalIdentity });
       xhrMock.responseText = JSON.stringify({ status: 'error' });
       xhrMock.onreadystatechange(new Event(''));
-      //return expect(p).resolves.toBe(originalIdentity.advertising_token);
+      return expect(p).resolves.toBe(originalIdentity.advertising_token);
     });
   });
 
@@ -128,7 +128,7 @@ describe('when getAdvertisingTokenAsync is called before init', () => {
       const p2 = uid2.getAdvertisingTokenAsync();
       const p3 = uid2.getAdvertisingTokenAsync();
       uid2.init({ callback: callback, identity: identity });
-      //return expect(Promise.all([p1, p2, p3])).resolves.toStrictEqual(Array(3).fill(identity.advertising_token));
+      return expect(Promise.all([p1, p2, p3])).resolves.toStrictEqual(Array(3).fill(identity.advertising_token));
     });
   });
 });
@@ -138,7 +138,7 @@ describe('when getAdvertisingTokenAsync is called after init completed', () => {
     const identity = makeIdentity();
     test('it should resolve promise', () => {
       uid2.init({ callback: callback, identity: identity });
-      // return expect(uid2.getAdvertisingTokenAsync()).resolves.toBe(identity.advertising_token);
+      return expect(uid2.getAdvertisingTokenAsync()).resolves.toBe(identity.advertising_token);
     });
   });
 
@@ -191,7 +191,7 @@ describe('when getAdvertisingTokenAsync is called before refresh on init complet
       });
       xhrMock.responseText = btoa(JSON.stringify({ status: 'success', body: updatedIdentity }));
       xhrMock.onreadystatechange(new Event(''));
-      // return expect(p).resolves.toBe(updatedIdentity.advertising_token);
+      return expect(p).resolves.toBe(updatedIdentity.advertising_token);
     });
   });
 
