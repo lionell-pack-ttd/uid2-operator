@@ -82,18 +82,26 @@ describe('when initialising with invalid options', () => {
     expect(() => (uid2 as any).init()).toThrow(TypeError);
   });
   test('should fail on opts not being an object', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init(12345)).toThrow(TypeError);
   });
   test('should fail on opts being null', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init(null)).toThrow(TypeError);
   });
   test('should fail on no callback provided', () => {
     expect(() => uid2.init({ })).toThrow(TypeError);
   });
   test('should fail on callback not being a function', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init({ callback: 12345 })).toThrow(TypeError);
   });
   test('should fail on refreshRetryPeriod not being a number', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init({ callback: () => {}, refreshRetryPeriod: 'abc' })).toThrow(TypeError);
   });
   test('should fail on refreshRetryPeriod being less than 1 second', () => {
@@ -289,6 +297,8 @@ describe('when initialised without identity', () => {
 describe('when initialised with specific identity', () => {
   describe('when invalid identity is supplied', () => {
     beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       uid2.init({ callback: callback, identity: {} });
     });
 

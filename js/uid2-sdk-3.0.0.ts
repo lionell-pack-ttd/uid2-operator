@@ -21,11 +21,42 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-import { Uid2ApiClient } from './uid2ApiClient';
+import { Uid2ApiClient, Uid2Identity } from './uid2ApiClient';
 
 type PromiseOutcome<T> = {
     resolve: (value: T | PromiseLike<T>) => void;
     reject: (reason: Error) => void;
+}
+type InitCallbackPayload = {
+    advertisingToken: string,
+    advertising_token: string,
+    status: IdentityStatus,
+    statusText: string
+}
+type InitCallbackFunction = (_: InitCallbackPayload) => void;
+type UID2Options = {
+    callback?: InitCallbackFunction;
+    refreshRetryPeriod?: number;
+    identity?: Uid2Identity;
+    baseUrl?: string;
+    cookieDomain?: string;
+    cookiePath?: string;
+}
+function isUID2OptionsOrThrow(maybeOpts: UID2Options | unknown): maybeOpts is UID2Options {
+    if (typeof maybeOpts !== 'object' || maybeOpts === null) {
+        throw new TypeError('opts must be an object');
+    }
+    const opts = maybeOpts as UID2Options;
+    if (opts.callback !== undefined && typeof opts.callback !== 'function') {
+        throw new TypeError('opts.callback, if provided, must be a function');
+    }
+    if (typeof opts.refreshRetryPeriod !== 'undefined') {
+        if (typeof opts.refreshRetryPeriod !== 'number')
+            throw new TypeError('opts.refreshRetryPeriod must be a number');
+        else if (opts.refreshRetryPeriod < 1000)
+            throw new RangeError('opts.refreshRetryPeriod must be >= 1000');
+    }
+    return true;
 }
 
 enum IdentityStatus {
@@ -42,6 +73,36 @@ class InvalidIdentityError extends Error {
     constructor(message) {
         super(message);
         this.name = "InvalidIdentityError";
+    }
+}
+
+type UID2CookieOptions = Pick<UID2Options, 'cookieDomain' | 'cookiePath'> & { cookieName: string };
+class UID2CookieManager {
+    private _opts: UID2CookieOptions;
+    constructor(opts: UID2CookieOptions) {
+        this._opts = opts;
+    }
+    public setCookie(identity) {
+        const value = JSON.stringify(identity);
+        const expires = new Date(identity.refresh_expires);
+        const path = this._opts.cookiePath ?? "/";
+        let cookie = this._opts.cookieName + "=" + encodeURIComponent(value) + " ;path=" + path + ";expires=" + expires.toUTCString();
+        if (typeof this._opts.cookieDomain !== 'undefined') {
+            cookie += ";domain=" + this._opts.cookieDomain;
+        }
+        document.cookie = cookie;
+    }
+    public removeCookie() {
+        document.cookie = this._opts.cookieName + "=;expires=Tue, 1 Jan 1980 23:59:59 GMT";
+    }
+    public getCookie() {
+        const docCookie = document.cookie;
+        if (docCookie) {
+            const payload = docCookie.split('; ').find(row => row.startsWith(this._opts.cookieName+'='));
+            if (payload) {
+                return decodeURIComponent(payload.split('=')[1]);
+            }
+        }
     }
 }
 
@@ -76,23 +137,17 @@ export class UID2 {
         });
     }
 
-    public init(opts) {
+    public init(opts: UID2Options) {
+        this.initInternal(opts);
+    }
+    public initInternal(opts: UID2Options | unknown) {
         if (this._initCalled) {
             throw new TypeError('Calling init() more than once is not allowed');
         }
 
+        if (!isUID2OptionsOrThrow(opts)) throw new TypeError(`Options provided to UID2 init couldn't be validated.`);
         
-        if (typeof opts !== 'object' || opts === null) {
-            throw new TypeError('opts must be an object');
-        } else if (typeof opts.callback !== 'function') {
-            throw new TypeError('opts.callback must be a function');
-        } else if (typeof opts.refreshRetryPeriod !== 'undefined') {
-            if (typeof opts.refreshRetryPeriod !== 'number')
-            throw new TypeError('opts.refreshRetryPeriod must be a number');
-            else if (opts.refreshRetryPeriod < 1000)
-            throw new RangeError('opts.refreshRetryPeriod must be >= 1000');
-        }
-        
+        this._cookieManager = new UID2CookieManager({ ...opts, cookieName: UID2.COOKIE_NAME });
         this._initCalled = true;
         this._opts = opts;
 
@@ -122,7 +177,11 @@ export class UID2 {
     }
     public disconnect() {
         this.abort();
-        this.removeCookie(UID2.COOKIE_NAME);
+
+        // TODO: This silently fails to clear the cookie if init hasn't been called and a cookieDomain is used
+        if (this._cookieManager) this._cookieManager.removeCookie();
+        else new UID2CookieManager({ cookieName: UID2.COOKIE_NAME }).removeCookie();
+
         this._identity = undefined;
         this._lastStatus = UID2.IdentityStatus.INVALID;
 
@@ -140,7 +199,7 @@ export class UID2 {
     }
 
     // PRIVATE STATE
-
+    
     _initCalled = false;
     _opts;
     _identity;
@@ -148,6 +207,7 @@ export class UID2 {
     _refreshTimerId;
     _refreshVersion;
     _promises: PromiseOutcome<string>[] = [];
+    private _cookieManager: UID2CookieManager;
     private _apiClient: Uid2ApiClient;
 
     // PRIVATE METHODS
@@ -161,29 +221,6 @@ export class UID2 {
 
     private getOptionOrDefault(value, defaultValue) {
         return typeof value === 'undefined' ? defaultValue : value;
-    }
-
-    private setCookie(name, identity) {
-        const value = JSON.stringify(identity);
-        const expires = new Date(identity.refresh_expires);
-        const path = this.getOptionOrDefault(this._opts.cookiePath, "/");
-        let cookie = name + "=" + encodeURIComponent(value) + " ;path=" + path + ";expires=" + expires.toUTCString();
-        if (typeof this._opts.cookieDomain !== 'undefined') {
-            cookie += ";domain=" + this._opts.cookieDomain;
-        }
-        document.cookie = cookie;
-    }
-    private removeCookie(name) {
-        document.cookie = name + "=;expires=Tue, 1 Jan 1980 23:59:59 GMT";
-    }
-    private getCookie(name) {
-        const docCookie = document.cookie;
-        if (docCookie) {
-            const payload = docCookie.split('; ').find(row => row.startsWith(name+'='));
-            if (payload) {
-                return decodeURIComponent(payload.split('=')[1]);
-            }
-        }
     }
 
     private updateStatus(status, statusText) {
@@ -210,14 +247,14 @@ export class UID2 {
     }
     private setValidIdentity(identity, status, statusText) {
         this._identity = identity;
-        this.setCookie(UID2.COOKIE_NAME, identity);
+        this._cookieManager.setCookie(identity);
         this.setRefreshTimer();
         this.updateStatus(status, statusText);
     }
     private setFailedIdentity(status, statusText) {
         this._identity = undefined;
         this.abort();
-        this.removeCookie(UID2.COOKIE_NAME);
+        this._cookieManager.removeCookie();
         this.updateStatus(status, statusText);
     }
     private checkIdentity(identity) {
@@ -250,7 +287,7 @@ export class UID2 {
         }
     }
     private loadIdentity() {
-        const payload = this.getCookie(UID2.COOKIE_NAME);
+        const payload = this._cookieManager.getCookie();
         if (payload) {
             return JSON.parse(payload);
         }

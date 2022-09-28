@@ -30,7 +30,6 @@ import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
 let callback;
 let uid2: UID2;
 let xhrMock;
-// eslint-disable-next-line no-unused-vars
 let _cryptoMock;
 
 mocks.setupFakeTime();
