@@ -13,7 +13,7 @@ interface IdentityV1 extends IdentityBase {
     // eslint-disable-next-line camelcase
     refresh_response_key: never;
 }
-type Uid2Identity = IdentityV1 | IdentityV2;
+export type Uid2Identity = IdentityV1 | IdentityV2;
 function isValidIdentity(identity: Uid2Identity | unknown): identity is Uid2Identity {
     return (typeof identity === 'object' &&
         identity !== null &&
