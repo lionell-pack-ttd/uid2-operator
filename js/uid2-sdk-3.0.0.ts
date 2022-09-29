@@ -22,6 +22,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 import { Uid2ApiClient, Uid2Identity } from './uid2ApiClient';
+import { UID2CookieManager } from './uid2CookieManager';
 
 type PromiseOutcome<T> = {
     resolve: (value: T | PromiseLike<T>) => void;
@@ -35,7 +36,7 @@ type InitCallbackPayload = {
 }
 type InitCallbackFunction = (_: InitCallbackPayload) => void;
 type Uid2CallbackHandler = (event: EventType, payload: any) => void;
-type Uid2Options = {
+export type Uid2Options = {
     callback?: InitCallbackFunction;
     refreshRetryPeriod?: number;
     identity?: Uid2Identity;
@@ -82,35 +83,7 @@ class InvalidIdentityError extends Error {
     }
 }
 
-type UID2CookieOptions = Pick<Uid2Options, 'cookieDomain' | 'cookiePath'> & { cookieName: string };
-class UID2CookieManager {
-    private _opts: UID2CookieOptions;
-    constructor(opts: UID2CookieOptions) {
-        this._opts = opts;
-    }
-    public setCookie(identity) {
-        const value = JSON.stringify(identity);
-        const expires = new Date(identity.refresh_expires);
-        const path = this._opts.cookiePath ?? "/";
-        let cookie = this._opts.cookieName + "=" + encodeURIComponent(value) + " ;path=" + path + ";expires=" + expires.toUTCString();
-        if (typeof this._opts.cookieDomain !== 'undefined') {
-            cookie += ";domain=" + this._opts.cookieDomain;
-        }
-        document.cookie = cookie;
-    }
-    public removeCookie() {
-        document.cookie = this._opts.cookieName + "=;expires=Tue, 1 Jan 1980 23:59:59 GMT";
-    }
-    public getCookie() {
-        const docCookie = document.cookie;
-        if (docCookie) {
-            const payload = docCookie.split('; ').find(row => row.startsWith(this._opts.cookieName+'='));
-            if (payload) {
-                return decodeURIComponent(payload.split('=')[1]);
-            }
-        }
-    }
-}
+
 
 export class UID2 {
     static get VERSION() {
