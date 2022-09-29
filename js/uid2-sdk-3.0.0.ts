@@ -34,7 +34,8 @@ type InitCallbackPayload = {
     statusText: string
 }
 type InitCallbackFunction = (_: InitCallbackPayload) => void;
-type UID2Options = {
+type Uid2CallbackHandler = (event: EventType, payload: any) => void;
+type Uid2Options = {
     callback?: InitCallbackFunction;
     refreshRetryPeriod?: number;
     identity?: Uid2Identity;
@@ -42,11 +43,11 @@ type UID2Options = {
     cookieDomain?: string;
     cookiePath?: string;
 }
-function isUID2OptionsOrThrow(maybeOpts: UID2Options | unknown): maybeOpts is UID2Options {
+function isUID2OptionsOrThrow(maybeOpts: Uid2Options | unknown): maybeOpts is Uid2Options {
     if (typeof maybeOpts !== 'object' || maybeOpts === null) {
         throw new TypeError('opts must be an object');
     }
-    const opts = maybeOpts as UID2Options;
+    const opts = maybeOpts as Uid2Options;
     if (opts.callback !== undefined && typeof opts.callback !== 'function') {
         throw new TypeError('opts.callback, if provided, must be a function');
     }
@@ -68,6 +69,11 @@ enum IdentityStatus {
     REFRESH_EXPIRED = -3,
     OPTOUT = -4
 }
+enum EventType {
+    InitCompleted = 'InitCompleted',
+    IdentityUpdated = 'IdentityUpdated',
+    SdkLoaded = 'SdkLoaded',
+}
 
 class InvalidIdentityError extends Error {
     constructor(message) {
@@ -76,7 +82,7 @@ class InvalidIdentityError extends Error {
     }
 }
 
-type UID2CookieOptions = Pick<UID2Options, 'cookieDomain' | 'cookiePath'> & { cookieName: string };
+type UID2CookieOptions = Pick<Uid2Options, 'cookieDomain' | 'cookiePath'> & { cookieName: string };
 class UID2CookieManager {
     private _opts: UID2CookieOptions;
     constructor(opts: UID2CookieOptions) {
@@ -117,6 +123,7 @@ export class UID2 {
         return 5000;
     }
     static IdentityStatus = IdentityStatus;
+    static EventType = EventType;
 
     static setupGoogleTag() {
         if (!window.googletag) {
@@ -128,7 +135,7 @@ export class UID2 {
         window.googletag.encryptedSignalProviders.push({
             id: "uidapi.com",
             collectorFunction: () => {
-                if (window.__uid2 && window.__uid2.getAdvertisingTokenAsync) {
+                if (window.__uid2 && 'getAdvertisingTokenAsync' in window.__uid2) {
                     return window.__uid2.getAdvertisingTokenAsync();
                 } else {
                     return Promise.reject(new Error("UID2 SDK not present"));
@@ -137,10 +144,16 @@ export class UID2 {
         });
     }
 
-    public init(opts: UID2Options) {
+    public callbacks: Uid2CallbackHandler[] = [];
+    constructor() {
+        this.runCallbacks(EventType.SdkLoaded, {});
+    }
+
+
+    public init(opts: Uid2Options) {
         this.initInternal(opts);
     }
-    public initInternal(opts: UID2Options | unknown) {
+    public initInternal(opts: Uid2Options | unknown) {
         if (this._initCalled) {
             throw new TypeError('Calling init() more than once is not allowed');
         }
@@ -155,6 +168,9 @@ export class UID2 {
 
         const identity = this._opts.identity ? this._opts.identity : this.loadIdentity()
         this.applyIdentity(identity);
+        this._initComplete = true;
+        this.runCallbacks(EventType.InitCompleted, {});
+
     }
     public getAdvertisingToken() {
         return this._identity && !this.temporarilyUnavailable() ? this._identity.advertising_token : undefined;
@@ -188,6 +204,7 @@ export class UID2 {
         const promises = this._promises;
         this._promises = [];
         promises.forEach(p => p.reject(new Error("disconnect()")));
+        this.runCallbacks(UID2.EventType.IdentityUpdated, { identity: null });
     }
     public abort() {
         this._initCalled = true;
@@ -207,10 +224,46 @@ export class UID2 {
     _refreshTimerId;
     _refreshVersion;
     _promises: PromiseOutcome<string>[] = [];
+    private _initComplete = false;  // Whether init has finished
     private _cookieManager: UID2CookieManager;
     private _apiClient: Uid2ApiClient;
 
-    // PRIVATE METHODS
+    private _configuredCallbackArray = false;
+    private static _sentSdkLoaded = false;
+    private _sentInit = false;
+    private callbackPushInterceptor(...args) {
+        const pushResult = Array.prototype.push.apply(this.callbacks, args);
+        for (const c of args) {
+            if (UID2._sentSdkLoaded) this.safeRunCallback(c, EventType.SdkLoaded, { });
+            if (this._sentInit) this.safeRunCallback(c, EventType.InitCompleted, { identity: this._identity });
+        }
+        return pushResult;
+    }
+    private runCallbacks(event: EventType, payload) {
+        if (!(this._initComplete || event === EventType.SdkLoaded )) return;
+
+        if (!this._configuredCallbackArray) {
+            this.callbacks.push = this.callbackPushInterceptor.bind(this);
+            this._configuredCallbackArray = true;
+        }
+        const enrichedPayload = { ...payload, identity: this._identity };
+        for (const callback of this.callbacks) {
+            this.safeRunCallback(callback, event, enrichedPayload);
+        }
+        if (event === EventType.SdkLoaded) UID2._sentSdkLoaded = true;
+        if (event === EventType.InitCompleted) this._sentInit = true;
+    }
+    private safeRunCallback(callback: Uid2CallbackHandler, event: EventType, payload) {
+        if (typeof callback === 'function') {
+            try {
+                callback(event, payload);
+            } catch (exception) {
+                console.warn("UID2 callback threw an exception", exception);
+            }
+        } else {
+            console.warn("A UID2 SDK callback was supplied which isn't a function.")
+        }
+    }
 
     private initialised() {
         return typeof this._lastStatus !== 'undefined'; 
@@ -351,7 +404,10 @@ export class UID2 {
                 (reason) => {
                     this.handleRefreshFailure(identity, reason.message);
                 }
-            );
+            )
+            .then(() => {
+                this.runCallbacks(EventType.IdentityUpdated, {});
+            });
     }
     private handleRefreshFailure(identity, errorMessage) {
         const now = Date.now();
@@ -376,16 +432,22 @@ export class UID2 {
 
 }
 
-
+type UID2Setup = {
+    callbacks: Uid2CallbackHandler[] | undefined;
+}
 declare global {
     interface Window {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         googletag: any;
-        __uid2: UID2;
+        __uid2: UID2 | UID2Setup | undefined;
     }
 }
 
-window.__uid2 = new UID2();
+(function() {
+    const callbacks = window?.__uid2?.callbacks || [];
+    window.__uid2 = new UID2();
+    window.__uid2.callbacks = callbacks;
+})();
 
 UID2.setupGoogleTag();
 
