@@ -90,9 +90,46 @@ class InvalidIdentityError extends Error {
     }
 }
 
+class UID2PromiseHandler {
+    private _promises: PromiseOutcome<string>[] = [];
+    private _seenInit = false;
+    private _handleEvent(eventType: EventType, payload: Uid2CallbackPayload) {
+        if (eventType === EventType.InitCompleted) {
+            this._seenInit = true;
+            this._promises.forEach(p => {
+                if ('identity' in payload && payload.identity) p.resolve(payload.identity.advertising_token);
+                else p.reject(`No identity available.`);
+            });
+            this._promises = [];
+        }
+    }
+    public rejectAllPromises(reason: string | Error) {
+        this._seenInit = true; // Is this right?
+        this._promises.forEach(p => {
+            p.reject(reason); 
+        });
+        this._promises = [];
+    }
+    // n.b. If this has seen an SDK init, it'll reply immediately with the provided token
+    // Otherwise, it will ignore the provided token and resolve with the identity available when the init event arrives
+    public createMaybeDeferredPromise(token: string | null) {
+        if (!this._seenInit) {
+            return new Promise<string>((resolve, reject) => {
+                this._promises.push({ resolve: resolve, reject: reject });
+            });
+        } else {
+            if (token) return Promise.resolve(token);
+            else return Promise.reject(new Error('Identity not available'));
+        }
+    }
 
+    public attachToSdk(uid2Sdk: UID2) {
+        uid2Sdk.callbacks.push(this._handleEvent.bind(this));
+    }
+}
 
 export class UID2 {
+    private _tokenPromiseHandler: UID2PromiseHandler;
     static get VERSION() {
         return "3.0.0";
     }
@@ -127,6 +164,8 @@ export class UID2 {
     public callbacks: Uid2CallbackHandler[] = [];
     constructor() {
         this.runCallbacks(EventType.SdkLoaded, {});
+        this._tokenPromiseHandler = new UID2PromiseHandler();
+        this._tokenPromiseHandler.attachToSdk(this);
     }
 
 
@@ -155,24 +194,17 @@ export class UID2 {
     public getAdvertisingToken() {
         return this._identity && !this.temporarilyUnavailable() ? this._identity.advertising_token : undefined;
     }
+    // If the SDK has been initialized, returns a resolved promise with the current token (or rejected if not available)
+    // Otherwise, returns a promise which will be resolved after init.
     public getAdvertisingTokenAsync() {
-        if (!this.initialised()) {
-            return new Promise((resolve, reject) => {
-                this._promises.push({ resolve: resolve, reject: reject });
-            });
-        } else if (this._identity) {
-            return this.temporarilyUnavailable()
-                ? Promise.reject(new Error('temporarily unavailable'))
-                : Promise.resolve(this._identity.advertising_token);
-        } else {
-            return Promise.reject(new Error('identity not available'));
-        }
+        const token = this.getAdvertisingToken();
+        return this._tokenPromiseHandler.createMaybeDeferredPromise(token);
     }
     public isLoginRequired() {
         return this.initialised() ? !this._identity : undefined;
     }
     public disconnect() {
-        this.abort();
+        this.abort(`UID2 SDK disconnected.`);
 
         // TODO: This silently fails to clear the cookie if init hasn't been called and a cookieDomain is used
         if (this._cookieManager) this._cookieManager.removeCookie();
@@ -181,13 +213,11 @@ export class UID2 {
         this._identity = undefined;
         this._lastStatus = UID2.IdentityStatus.INVALID;
 
-        const promises = this._promises;
-        this._promises = [];
-        promises.forEach(p => p.reject(new Error("disconnect()")));
         this.runCallbacks(UID2.EventType.IdentityUpdated, { identity: null });
     }
-    public abort() {
+    public abort(reason?: string) {
         this._initCalled = true;
+        this._tokenPromiseHandler.rejectAllPromises(reason ?? new Error(`UID2 SDK aborted.`));
         if (typeof this._refreshTimerId !== 'undefined') {
             clearTimeout(this._refreshTimerId);
             this._refreshTimerId = undefined;
@@ -254,9 +284,6 @@ export class UID2 {
     private updateStatus(status: any, statusText: string) {
         this._lastStatus = status;
 
-        const promises = this._promises;
-        this._promises = [];
-
         const advertisingToken = this.getAdvertisingToken();
 
         const result = {
@@ -266,12 +293,6 @@ export class UID2 {
             statusText: statusText
         };
         this._opts.callback(result);
-
-        if (advertisingToken) {
-            promises.forEach(p => p.resolve(advertisingToken));
-        } else {
-            promises.forEach(p => p.reject(new Error(statusText)));
-        }
     }
     
     private setValidIdentity(identity: Uid2Identity, status: any, statusText: string) {
@@ -279,7 +300,6 @@ export class UID2 {
 
         this._identity = identity;
         this._cookieManager.setCookie(identity);
-        this.setRefreshTimer();
         this.updateStatus(status, statusText);
     }
     private setFailedIdentity(status: any, statusText: string) {
@@ -378,6 +398,7 @@ export class UID2 {
                     switch (response.status) {
                         case 'success':
                             this.setIdentity(response.identity, UID2.IdentityStatus.REFRESHED, "Identity refreshed");
+                            this.setRefreshTimer();
                             break;
                         case 'optout':
                             this.setFailedIdentity(UID2.IdentityStatus.OPTOUT, "User opted out");
@@ -399,13 +420,15 @@ export class UID2 {
         const now = Date.now();
         if (identity.refresh_expires <= now) {
             this.setFailedIdentity(UID2.IdentityStatus.REFRESH_EXPIRED, "Refresh expired; token refresh failed: " + errorMessage);
-        } else if (identity.identity_expires <= now && !this.temporarilyUnavailable()) {
+            return;
+        }
+        
+        if (identity.identity_expires <= now && !this.temporarilyUnavailable()) {
             this.setValidIdentity(identity, UID2.IdentityStatus.EXPIRED, "Token refresh failed for expired identity: " + errorMessage);
-        } else if (this.initialised()) {
-            this.setRefreshTimer(); // silently retry later
-        } else {
+        } else if (!this.initialised()) {
             this.setIdentity(identity, UID2.IdentityStatus.ESTABLISHED, "Identity established; token refresh failed: " + errorMessage)
         }
+        this.setRefreshTimer();
     }
     private setRefreshTimer() {
         const timeout = this._opts.refreshRetryPeriod ?? UID2.DEFAULT_REFRESH_RETRY_PERIOD_MS;
@@ -414,8 +437,6 @@ export class UID2 {
             this.applyIdentity(this.loadIdentity());
         }, timeout);
     }
-
-
 }
 
 type UID2Setup = {

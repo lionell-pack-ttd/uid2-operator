@@ -6,7 +6,7 @@
       "lib": ["es2021"],
       "module": "commonjs",
       "target": "es6",
-  
+      "allowJs": true,
       "strict": true,
       "esModuleInterop": true,
       "skipLibCheck": true,
@@ -14,8 +14,6 @@
       "outDir": "dist"
     },
     "exclude": [
-        "node_modules",
-        "**/*.spec.ts",
-        "**/*.test.ts"
+        "node_modules"
     ]
   }
