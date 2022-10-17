@@ -22,6 +22,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 import { Uid2Options } from "./uid2-sdk-3.0.0";
+import { Uid2Identity } from './uid2ApiClient';
 
 type UID2CookieOptions = Pick<Uid2Options, 'cookieDomain' | 'cookiePath'> & { cookieName: string };
 
@@ -30,7 +31,7 @@ export class UID2CookieManager {
     constructor(opts: UID2CookieOptions) {
         this._opts = opts;
     }
-    public setCookie(identity) {
+    public setCookie(identity: Uid2Identity) {
         const value = JSON.stringify(identity);
         const expires = new Date(identity.refresh_expires);
         const path = this._opts.cookiePath ?? "/";

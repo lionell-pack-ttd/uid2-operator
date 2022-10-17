@@ -185,10 +185,10 @@ describe('when getAdvertisingTokenAsync is called before refresh on init complet
 
   describe('when auto refresh completes successfully', () => {
     test('it should resolve promise after invoking the callback', () => {
-      const p = uid2.getAdvertisingTokenAsync().then(token => {
-        expect(callback).toHaveBeenCalled();
-        return token;
-      });
+    const p = uid2.getAdvertisingTokenAsync().then(token => {
+      expect(callback).toHaveBeenCalled();
+      return token;
+    });
       xhrMock.responseText = btoa(JSON.stringify({ status: 'success', body: updatedIdentity }));
       xhrMock.onreadystatechange(new Event(''));
       return expect(p).resolves.toBe(updatedIdentity.advertising_token);
