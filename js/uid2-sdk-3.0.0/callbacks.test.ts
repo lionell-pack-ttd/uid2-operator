@@ -26,10 +26,10 @@ import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/global
 import * as mocks from '../mocks.js';
 import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
 
-let callback;
-let asyncCallback;
-let uid2;
-let xhrMock;
+let callback: any;
+let asyncCallback: any;
+let uid2: UID2;
+let xhrMock: any;
 
 let _cryptoMock;
 

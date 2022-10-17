@@ -27,9 +27,9 @@ import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/global
 import * as mocks from '../mocks.js';
 import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
 
-let callback;
-let uid2;
-let xhrMock;
+let callback: any;
+let uid2: UID2;
+let xhrMock: any;
 
 mocks.setupFakeTime();
 
@@ -70,7 +70,7 @@ describe('when a v0 cookie is available', () => {
     expect(clearTimeout).not.toHaveBeenCalled();
   });
   test('should be in initialising state', () => {
-    (expect(uid2) as any).toBeInInitialisingState();
+    (expect(uid2) as any).toBeInAvailableState();
   });
 
   describe('when token refresh succeeds', () => {
@@ -80,7 +80,7 @@ describe('when a v0 cookie is available', () => {
     });
 
     test('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
         advertising_token: updatedIdentity.advertising_token,
         status: UID2.IdentityStatus.REFRESHED,
       }));

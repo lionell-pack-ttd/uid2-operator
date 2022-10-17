@@ -26,10 +26,10 @@ import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/global
 import * as mocks from '../mocks.js';
 import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
 
-let callback;
-let uid2;
-let xhrMock;
-let cookieMock;
+let callback: any;
+let uid2: UID2;
+let xhrMock: any;
+let cookieMock: any;
 
 mocks.setupFakeTime();
 
