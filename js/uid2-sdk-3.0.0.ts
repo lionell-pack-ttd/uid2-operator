@@ -353,22 +353,26 @@ export class UID2 {
             this.setFailedIdentity(UID2.IdentityStatus.REFRESH_EXPIRED, "Identity expired, refresh expired");
             return;
         }
+
+        if (identity.identity_expires > now) {
+            if (typeof this._identity === 'undefined') {
+                this.setIdentity(identity, UID2.IdentityStatus.ESTABLISHED, "Identity established");
+            } else if (identity.advertising_token !== this._identity.advertising_token) {
+                // identity must have been refreshed from another tab
+                this.setIdentity(identity, UID2.IdentityStatus.REFRESHED, "Identity refreshed");
+            } 
+        }
+        
         if (identity.refresh_from <= now) {
             this.refreshToken(identity);
-            return;
-        }
-
-        if (typeof this._identity === 'undefined') {
-            this.setIdentity(identity, UID2.IdentityStatus.ESTABLISHED, "Identity established");
-        } else if (identity.advertising_token !== this._identity.advertising_token) {
-            // identity must have been refreshed from another tab
-            this.setIdentity(identity, UID2.IdentityStatus.REFRESHED, "Identity refreshed");
         } else {
             this.setRefreshTimer();
         }
     }
 
-    private refreshToken(identity) {
+    private refreshToken(identity: Uid2Identity) {
+        if (!this._apiClient) throw new Error("Cannot refresh the token before calling init.")
+
         this._apiClient.callRefreshApi(identity)
             .then((response) => {
                     switch (response.status) {
