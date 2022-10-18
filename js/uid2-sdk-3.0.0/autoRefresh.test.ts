@@ -184,8 +184,8 @@ describe('when auto refreshing a non-expired identity which requires a refresh',
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    test('should not invoke the callback', () => {
-      expect(callback).not.toHaveBeenCalled();
+    test('should invoke the callback with the valid identity', () => {
+      expect(callback).toBeCalledWith(expect.objectContaining({advertising_token: 'original_advertising_token'}));
     });
     test('should not update cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(originalIdentity.advertising_token);
@@ -255,7 +255,7 @@ describe('when auto refreshing an expired identity', () => {
     expect(clearTimeout).not.toHaveBeenCalled();
   });
   test('should be in available state', () => {
-    (expect(uid2) as any).toBeInAvailableState();
+    (expect(uid2) as any).toBeInTemporarilyUnavailableState();
   });
 
   describe('when token refresh succeeds', () => {

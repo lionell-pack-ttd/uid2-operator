@@ -91,8 +91,8 @@ describe('when initialising with invalid options', () => {
     // @ts-ignore
     expect(() => uid2.init(null)).toThrow(TypeError);
   });
-  test('should fail on no callback provided', () => {
-    expect(() => uid2.init({ })).toThrow(TypeError);
+  test('should work on no callback provided', () => {
+    expect(() => uid2.init({ })).not.toThrow(TypeError);
   });
   test('should fail on callback not being a function', () => {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -268,7 +268,7 @@ describe('when initialised without identity', () => {
       expect(clearTimeout).not.toHaveBeenCalled();
     });
     test('should be in initialising state', () => {
-      (expect(uid2) as any).toBeInInitialisingState();
+      (expect(uid2) as any).toBeInTemporarilyUnavailableState();
     });
   });
   describe('when uid2 v1 cookie with expired but refreshable identity is available', () => {

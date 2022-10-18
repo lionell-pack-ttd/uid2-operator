@@ -70,6 +70,10 @@ export class Uid2ApiClient {
         return arrayBuffer;
     }
 
+    public hasActiveRequests() {
+        return this._requestsInFlight.length > 0;
+    }
+
     private ResponseToRefreshResult(response: UnvalidatedRefreshResponse): RefreshResult | string {
         if (isValidRefreshResponse(response)) {
             if (response.status === "success") return { status: response.status, identity: response.body };

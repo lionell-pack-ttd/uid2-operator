@@ -126,7 +126,7 @@ describe("when a callback is provided", () => {
 
       expect(asyncCallback.mock.calls.length).toBe(callsBeforeRefresh+1);
       expect(asyncCallback.mock.calls[callsBeforeRefresh][0]).toBe(UID2.EventType.IdentityUpdated);
-      expect(asyncCallback.mock.calls[callsBeforeRefresh][1]).toMatchObject({ identity: undefined });
+      expect(asyncCallback.mock.calls[callsBeforeRefresh][1]).toMatchObject({ identity: null });
     });
   });
 });
