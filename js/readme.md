@@ -35,6 +35,8 @@ The new approach is to place source `.ts` files in this folder (or sub-folders),
 
 Wallaby.js is the best way to do this. In VS Code with the Wallaby.js extension installed, hit `ctrl-shift-p` (or whatever you have bound to `View... Command Palette...`) and type `wallaby`. `Smart Start` will only start running tests from test files you've opened, while `Start` will run all tests (both commands keep running tests as you type).
 
+For a feature overview of Wallaby.js, see [the Wallaby.js feature page](https://wallabyjs.com/#features). For detailed help on how to use it, see [the Wallaby.js docs](https://wallabyjs.com/docs/). There are video tutorials for most of the main features. Note that nobody who contributed to this document is affiliated with Wallaby.js in any way.
+
 You might want to only run the tests for the SDK version you're working on. You can do this by updating the `jest` section of `package.json` to add a `testMatch` property. For example, this will only run the 3.0.0 tests:
 
 ```json
