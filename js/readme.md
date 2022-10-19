@@ -29,7 +29,7 @@ There is currently a separate folder for tests for each version of the SDK. All 
 
 The new approach is to place source `.ts` files in this folder (or sub-folders), but the current testing setup still uses a `uid2-sdk-3.0.0` folder for tests. There's no current decision for whether this will change or how versioning will be handled going forward - one option is to build the various outputs and check them in to the repo. This would allow us to keep a set of tests for each published version of the SDK.
 
-# Running the desks
+# Running the tests
 
 ## While developing (e.g. watch mode)
 
