@@ -158,10 +158,6 @@ describe('when getAdvertisingTokenAsync is called before refresh on init complet
   const originalIdentity = makeIdentity({
     refresh_from: Date.now() - 100000,
   });
-  const updatedIdentity = makeIdentity({
-    advertising_token: 'updated_advertising_token'
-  });
-
   beforeEach(() => {
     uid2.init({ callback: callback, identity: originalIdentity });
   });

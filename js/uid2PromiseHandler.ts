@@ -1,4 +1,5 @@
-import { EventType, UID2, Uid2CallbackPayload } from "./uid2-sdk-3.0.0";
+import { UID2 } from "./uid2-sdk-3.0.0";
+import { EventType, Uid2CallbackPayload } from "./uid2CallbackManager";
 
 type PromiseOutcome<T> = {
     resolve: (value: T | PromiseLike<T>) => void;
@@ -38,7 +39,7 @@ export class UID2PromiseHandler {
         }
     }
 
-    public attachToSdk(uid2Sdk: UID2) {
+    constructor(uid2Sdk: UID2) {
         uid2Sdk.callbacks.push(this._handleEvent.bind(this));
     }
 }

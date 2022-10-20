@@ -185,7 +185,7 @@ describe('when auto refreshing a non-expired identity which requires a refresh',
     });
 
     test('should invoke the callback with the valid identity', () => {
-      expect(callback).toBeCalledWith(expect.objectContaining({advertising_token: 'original_advertising_token'}));
+      expect(callback).toBeCalledWith(expect.objectContaining({ advertising_token: 'original_advertising_token' }));
     });
     test('should not update cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(originalIdentity.advertising_token);
