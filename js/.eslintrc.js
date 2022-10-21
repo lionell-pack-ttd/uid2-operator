@@ -1,5 +1,7 @@
 module.exports = {
-  extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended'],
+  extends: [
+    'eslint:recommended',
+  ],
   parser: '@typescript-eslint/parser',
   "parserOptions": {
       "ecmaVersion": 2018
@@ -173,6 +175,19 @@ module.exports = {
             "argsIgnorePattern": "^(_|(args|props|event|e)$)",
             "varsIgnorePattern": "^(_|(IdentityStatus)$)"
           }
+        ]
+      }
+    },
+    {
+      "files": ["*.ts"],
+      extends: [
+        'plugin:@typescript-eslint/eslint-recommended',
+        'plugin:@typescript-eslint/recommended',
+        'plugin:@typescript-eslint/recommended-requiring-type-checking'    
+      ],
+      parserOptions: {
+        project: [
+          './js/tsconfig.json'
         ]
       }
     }
