@@ -27,9 +27,9 @@ import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/global
 import * as mocks from '../mocks.js';
 import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
 
-let callback;
+let callback: any;
 let uid2: UID2;
-let xhrMock;
+let xhrMock: any;
 let _cryptoMock;
 
 mocks.setupFakeTime();
@@ -57,7 +57,6 @@ describe('when auto refreshing a non-expired identity which does not require a r
   });
 
   test('should not invoke the callback', () => {
-    console.log(sdkWindow.crypto);
     expect(sdkWindow.crypto).toBeDefined();
     expect(callback).not.toHaveBeenCalled();
   });
@@ -185,8 +184,8 @@ describe('when auto refreshing a non-expired identity which requires a refresh',
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    test('should not invoke the callback', () => {
-      expect(callback).not.toHaveBeenCalled();
+    test('should invoke the callback with the valid identity', () => {
+      expect(callback).toBeCalledWith(expect.objectContaining({advertising_token: 'original_advertising_token'}));
     });
     test('should not update cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(originalIdentity.advertising_token);
@@ -256,12 +255,12 @@ describe('when auto refreshing an expired identity', () => {
     expect(clearTimeout).not.toHaveBeenCalled();
   });
   test('should be in available state', () => {
-    (expect(uid2) as any).toBeInAvailableState();
+    (expect(uid2) as any).toBeInTemporarilyUnavailableState();
   });
 
   describe('when token refresh succeeds', () => {
     beforeEach(() => {
-    xhrMock.responseText = btoa(JSON.stringify({ status: 'success', body: updatedIdentity }));
+      xhrMock.responseText = btoa(JSON.stringify({ status: 'success', body: updatedIdentity }));
       xhrMock.onreadystatechange(new Event(''));
     });
 

@@ -47,6 +47,11 @@ class XhrMock {
     return 4;
   }
 
+  sendRefreshApiResponse(identity) {
+    this.responseText = btoa(JSON.stringify({ status: 'success', body: identity }));
+    this.onreadystatechange(new Event(''));
+  }  
+
   constructor(window) {
     this.open             = jest.fn();
     this.send             = jest.fn();
@@ -121,6 +126,11 @@ function setUid2Cookie(value) {
   document.cookie = sdk.UID2.COOKIE_NAME + '=' + encodeURIComponent(JSON.stringify(value));
 }
 
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 function getUid2Cookie() {
   const docCookie = document.cookie;
   if (docCookie) {
@@ -168,16 +178,17 @@ function makeIdentityV2(overrides) {
   };
 }
 module.exports = {
-  CookieMock: CookieMock,
-  XhrMock: XhrMock,
-  CryptoMock: CryptoMock,
-  setupFakeTime: setupFakeTime,
-  resetFakeTime: resetFakeTime,
-  setCookieMock: setCookieMock,
-  setUid2Cookie: setUid2Cookie,
-  getUid2Cookie: getUid2Cookie,
-  setEuidCookie: setEuidCookie,
-  getEuidCookie: getEuidCookie,
-  makeIdentityV1: makeIdentityV1,
-  makeIdentityV2: makeIdentityV2,
+  CookieMock,
+  XhrMock,
+  CryptoMock,
+  setupFakeTime,
+  resetFakeTime,
+  setCookieMock,
+  setUid2Cookie,
+  getUid2Cookie,
+  setEuidCookie,
+  getEuidCookie,
+  makeIdentityV1,
+  makeIdentityV2,
+  flushPromises,
 };

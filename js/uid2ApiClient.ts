@@ -62,12 +62,16 @@ export class Uid2ApiClient {
         this._clientVersion = clientVersion;
     }
 
-    private createArrayBuffer(text) {
+    private createArrayBuffer(text: string) {
         const arrayBuffer = new Uint8Array(text.length);
         for (let i = 0; i < text.length; i++) {
             arrayBuffer[i] = text.charCodeAt(i);
         }
         return arrayBuffer;
+    }
+
+    public hasActiveRequests() {
+        return this._requestsInFlight.length > 0;
     }
 
     private ResponseToRefreshResult(response: UnvalidatedRefreshResponse): RefreshResult | string {
@@ -128,7 +132,7 @@ export class Uid2ApiClient {
                         })
                     })
                 }
-            } catch (err) {
+            } catch (err: any) {
                 rejectPromise(err.message);
             }
         };

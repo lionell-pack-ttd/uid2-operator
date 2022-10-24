@@ -28,9 +28,9 @@ import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/global
 import * as mocks from '../mocks.js';
 import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
 
-let callback;
+let callback: any;
 let uid2: UID2;
-let xhrMock;
+let xhrMock: any;
 
 mocks.setupFakeTime();
 
@@ -91,8 +91,8 @@ describe('when initialising with invalid options', () => {
     // @ts-ignore
     expect(() => uid2.init(null)).toThrow(TypeError);
   });
-  test('should fail on no callback provided', () => {
-    expect(() => uid2.init({ })).toThrow(TypeError);
+  test('should work on no callback provided', () => {
+    expect(() => uid2.init({ })).not.toThrow(TypeError);
   });
   test('should fail on callback not being a function', () => {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -237,8 +237,8 @@ describe('when initialised without identity', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    test('should be in initialising state', () => {
-      (expect(uid2) as any).toBeInInitialisingState();
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState();
     });
   });
 
@@ -268,7 +268,7 @@ describe('when initialised without identity', () => {
       expect(clearTimeout).not.toHaveBeenCalled();
     });
     test('should be in initialising state', () => {
-      (expect(uid2) as any).toBeInInitialisingState();
+      (expect(uid2) as any).toBeInTemporarilyUnavailableState();
     });
   });
   describe('when uid2 v1 cookie with expired but refreshable identity is available', () => {
@@ -400,7 +400,7 @@ describe('when still valid identity is refreshed on init', () => {
     });
 
     test('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
         advertisingToken: updatedIdentity.advertising_token,
         advertising_token: updatedIdentity.advertising_token,
         status: UID2.IdentityStatus.REFRESHED,
@@ -450,7 +450,7 @@ describe('when still valid identity is refreshed on init', () => {
     });
 
     test('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
         status: UID2.IdentityStatus.OPTOUT,
@@ -476,7 +476,7 @@ describe('when still valid identity is refreshed on init', () => {
     });
 
     test('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
         status: UID2.IdentityStatus.REFRESH_EXPIRED,
@@ -602,7 +602,7 @@ describe('when still valid identity is refreshed on init', () => {
     });
 
     test('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
         status: UID2.IdentityStatus.REFRESH_EXPIRED,
@@ -667,7 +667,7 @@ describe('when expired identity is refreshed on init', () => {
     });
 
     test('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
         status: UID2.IdentityStatus.OPTOUT,
@@ -821,11 +821,6 @@ describe('disconnect()', () => {
     uid2.disconnect();
     expect(xhrMock.send).toHaveBeenCalledTimes(1);
     expect(xhrMock.abort).toHaveBeenCalledTimes(1);
-  });
-  test('should not invoke callback after aborting refresh token request', () => {
-    uid2.init({ callback: callback, identity: makeIdentityV2({ refresh_from: Date.now() - 100000 }) });
-    uid2.disconnect();
-    expect(callback).not.toHaveBeenCalled();
   });
   test('should prevent subsequent calls to init()', () => {
     uid2.disconnect();
