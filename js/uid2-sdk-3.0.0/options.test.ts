@@ -84,7 +84,7 @@ describe('cookiePath option', () => {
     });
 
     test('should use the default path in the cookie string', () => {
-      const cookie = cookieMock.getSetCookieString(UID2.COOKIE_NAME);
+      const cookie = cookieMock.getSetCookieString(UID2.COOKIE_NAME) as string;
       expect(cookie+';').toContain('Path=/;');
     });
   });
@@ -97,7 +97,7 @@ describe('cookiePath option', () => {
     });
 
     test('should use custom path in the cookie string', () => {
-      const cookie = cookieMock.getSetCookieString(UID2.COOKIE_NAME);
+      const cookie = cookieMock.getSetCookieString(UID2.COOKIE_NAME) as string;
       expect(cookie+';').toContain(`Path=${path};`);
     });
   });

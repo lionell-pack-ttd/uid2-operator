@@ -22,9 +22,27 @@
 // POSSIBILITY OF SUCH DAMAGE.
 
 import { Uid2Options } from "./uid2-sdk-3.0.0";
-import { Uid2Identity } from './uid2ApiClient';
+import { isValidIdentity, Uid2Identity } from './uid2ApiClient';
 
 type UID2CookieOptions = Pick<Uid2Options, 'cookieDomain' | 'cookiePath'> & { cookieName: string };
+type LegacyUid2SDKCookie = Omit<Uid2Identity, 'refresh_from' | 'refresh_expires' | 'identity_expires'>;
+
+export function isLegacyCookie(cookie: unknown): cookie is LegacyUid2SDKCookie {
+    if (typeof cookie !== 'object' || !cookie) return false;
+    const partialCookie = cookie as Partial<LegacyUid2SDKCookie>;
+    if ('advertising_token' in partialCookie && 'refresh_token' in partialCookie && partialCookie.advertising_token && partialCookie.refresh_token) return true;
+    return false;
+}
+
+function enrichIdentity(identity: LegacyUid2SDKCookie, now: number) {
+    return {
+        refresh_from: now,
+        refresh_expires: now + 7 * 86400 * 1000, // 7 days
+        identity_expires: now + 4 * 3600 * 1000, // 4 hours
+        ...identity,
+    };
+}
+
 
 export class UID2CookieManager {
     private _opts: UID2CookieOptions;
@@ -44,7 +62,7 @@ export class UID2CookieManager {
     public removeCookie() {
         document.cookie = this._opts.cookieName + "=;expires=Tue, 1 Jan 1980 23:59:59 GMT";
     }
-    public getCookie() {
+    private getCookie() {
         const docCookie = document.cookie;
         if (docCookie) {
             const payload = docCookie.split('; ').find(row => row.startsWith(this._opts.cookieName+'='));
@@ -52,5 +70,15 @@ export class UID2CookieManager {
                 return decodeURIComponent(payload.split('=')[1]);
             }
         }
+    }
+
+    public loadIdentityFromCookie() : Uid2Identity | null {
+        const payload = this.getCookie();
+        if (payload) {
+            const result = JSON.parse(payload) as unknown;
+            if (isValidIdentity(result)) return result;
+            if (isLegacyCookie(result)) return enrichIdentity(result, Date.now());
+        }
+        return null;
     }
 }

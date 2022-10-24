@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-empty-function */
 // Copyright (c) 2021 The Trade Desk, Inc
 //
 // Redistribution and use in source and binary forms, with or without
@@ -52,15 +50,21 @@ const makeIdentityV2 = mocks.makeIdentityV2;
 
 describe('When google tag setup is called', () => {
   test('should not fail when there is no googletag', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     sdkWindow.googletag = null;
     expect(() => UID2.setupGoogleTag()).not.toThrow(TypeError);
   });
   test('should not fail when there is no googletag encryptedSignalProviders', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     sdkWindow.googletag = { encryptedSignalProviders: null };
     expect(() => UID2.setupGoogleTag()).not.toThrow(TypeError);
   });
   test('should push if googletag has encryptedSignalProviders', () => {
     const mockPush = jest.fn();
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     sdkWindow.googletag = { encryptedSignalProviders: { push: mockPush } };
     UID2.setupGoogleTag();
     expect(mockPush.mock.calls.length).toBe(1);
@@ -149,7 +153,7 @@ describe('when initialised without identity', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: UID2.IdentityStatus.INVALID,
+        status: UID2.IdentityStatus.NO_IDENTITY,
       }));
     });
     test('should clear cookie', () => {

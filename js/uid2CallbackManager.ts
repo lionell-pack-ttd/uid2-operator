@@ -45,7 +45,7 @@ export class Uid2CallbackManager {
 
   private static _sentSdkLoaded = false;
   private _sentInit = false;
-  private callbackPushInterceptor(...args: any[]) {
+  private callbackPushInterceptor(...args: Uid2CallbackHandler[]) {
     const pushResult = Array.prototype.push.apply(this._uid2.callbacks, args);
     for (const c of args) {
       if (Uid2CallbackManager._sentSdkLoaded)

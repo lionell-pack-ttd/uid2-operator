@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // Copyright (c) 2021 The Trade Desk, Inc
 //
 // Redistribution and use in source and binary forms, with or without

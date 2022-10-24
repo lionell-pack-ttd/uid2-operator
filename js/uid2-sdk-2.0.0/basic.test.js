@@ -23,7 +23,6 @@
 
 const sdk = require('../../static/js/uid2-sdk-2.0.0.js');
 const mocks = require('../mocks.js');
-const {CryptoMock} = require("../mocks");
 
 let callback;
 let uid2;
@@ -55,12 +54,12 @@ describe('When google tag setup is called', () => {
     expect(() => sdk.UID2.setupGoogleTag()).not.toThrow(TypeError);
   });
   it('should not fail when there is no googletag encryptedSignalProviders', () => {
-    sdk.window.googletag = {encryptedSignalProviders: null};
+    sdk.window.googletag = { encryptedSignalProviders: null };
     expect(() => sdk.UID2.setupGoogleTag()).not.toThrow(TypeError);
   });
   it('should push if googletag has encryptedSignalProviders', () => {
     const mockPush = jest.fn();
-    sdk.window.googletag = {encryptedSignalProviders: {push: mockPush}};
+    sdk.window.googletag = { encryptedSignalProviders: { push: mockPush } };
     sdk.UID2.setupGoogleTag();
     expect(mockPush.mock.calls.length).toBe(1);
   });
@@ -69,6 +68,10 @@ describe('When google tag setup is called', () => {
 describe('initial state before init() is called', () => {
   it('should be in initialising state', () => {
     expect(uid2).toBeInInitialisingState();
+  });
+
+  it('getAdvertisingToken should return undefined', () => {
+    expect(uid2.getAdvertisingToken()).toBeUndefined();
   });
 });
 

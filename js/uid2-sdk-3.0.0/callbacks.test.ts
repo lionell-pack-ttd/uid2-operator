@@ -25,9 +25,10 @@ import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/global
 
 import * as mocks from '../mocks.js';
 import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
+import { Uid2CallbackHandler } from '../uid2CallbackManager';
 
 let callback: any;
-let asyncCallback: any;
+let asyncCallback: jest.Mock<Uid2CallbackHandler>;
 let uid2: UID2;
 let xhrMock: any;
 

@@ -23,7 +23,6 @@
 
 const sdk = require('../../static/js/euid-sdk-1.0.0.js');
 const mocks = require('../mocks.js');
-const {CryptoMock} = require("../mocks");
 
 let callback;
 let euid;

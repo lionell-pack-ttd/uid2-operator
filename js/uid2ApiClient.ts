@@ -1,3 +1,5 @@
+import { safeGetErrorMessage } from "./uid2-sdk-3.0.0";
+
 interface IdentityBase {
     advertising_token: string;
     identity_expires: number;
@@ -14,7 +16,7 @@ interface IdentityV1 extends IdentityBase {
     refresh_response_key: never;
 }
 export type Uid2Identity = IdentityV1 | IdentityV2;
-function isValidIdentity(identity: Uid2Identity | unknown): identity is Uid2Identity {
+export function isValidIdentity(identity: Uid2Identity | unknown): identity is Uid2Identity {
     return (typeof identity === 'object' &&
         identity !== null &&
         'advertising_token' in identity &&
@@ -74,7 +76,7 @@ export class Uid2ApiClient {
         return this._requestsInFlight.length > 0;
     }
 
-    private ResponseToRefreshResult(response: UnvalidatedRefreshResponse): RefreshResult | string {
+    private ResponseToRefreshResult(response: UnvalidatedRefreshResponse | unknown): RefreshResult | string {
         if (isValidRefreshResponse(response)) {
             if (response.status === "success") return { status: response.status, identity: response.body };
             return response;
@@ -106,7 +108,7 @@ export class Uid2ApiClient {
             this._requestsInFlight = this._requestsInFlight.filter(r => r !== req);
             try {
                 if(!refreshDetails.refresh_response_key || req.status !== 200) {
-                    const response = JSON.parse(req.responseText);
+                    const response = JSON.parse(req.responseText) as unknown;
                     const result = this.ResponseToRefreshResult(response);
                     if (typeof result === 'string') rejectPromise(result);
                     else resolvePromise(result);
@@ -125,15 +127,15 @@ export class Uid2ApiClient {
                             encodeResp.slice(12)
                         ).then((decrypted) => {
                             const decryptedResponse = String.fromCharCode(...new Uint8Array(decrypted));
-                            const response = JSON.parse(decryptedResponse);
+                            const response = JSON.parse(decryptedResponse) as unknown;
                             const result = this.ResponseToRefreshResult(response);
                             if (typeof result === 'string') rejectPromise(result);
                             else resolvePromise(result);
-                        })
-                    })
+                        }, (reason) => console.warn(`Call to UID2 API failed with reason: ${safeGetErrorMessage(reason)}`))
+                    }, (reason) => console.warn(`Call to UID2 API failed with reason: ${safeGetErrorMessage(reason)}`))
                 }
-            } catch (err: any) {
-                rejectPromise(err.message);
+            } catch (err) {
+                rejectPromise(safeGetErrorMessage(err));
             }
         };
         req.send(refreshDetails.refresh_token);

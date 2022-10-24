@@ -21,7 +21,6 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-import { MakeOptional } from './helperTypes/index';
 import { Uid2ApiClient, Uid2Identity } from './uid2ApiClient';
 import { EventType, IdentityStatus, InitCallbackFunction, Uid2CallbackHandler, Uid2CallbackManager } from './uid2CallbackManager';
 import { UID2CookieManager } from './uid2CookieManager';
@@ -35,6 +34,18 @@ export type Uid2Options = {
     baseUrl?: string;
     cookieDomain?: string;
     cookiePath?: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function safeGetErrorMessage(error: any): string {
+    try {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (typeof error === 'object' && error && 'message' in error) return error.message as string;
+        if (typeof error === 'string') return error;
+    } catch {
+        console.warn(`Something went wrong processing a UID2 error`);
+     }
+    return `Error message unavailable`;
 }
 
 function isUID2OptionsOrThrow(maybeOpts: Uid2Options | unknown): maybeOpts is Uid2Options {
@@ -53,6 +64,9 @@ function isUID2OptionsOrThrow(maybeOpts: Uid2Options | unknown): maybeOpts is Ui
     }
     return true;
 }
+
+type EncryptedSignalProvider = {id: string, collectorFunction: () => Promise<string> };
+type GoogleTag = { encryptedSignalProviders?: EncryptedSignalProvider[] };
 function setupGoogleTag() {
     if (!window.googletag) {
         window.googletag = {};
@@ -113,7 +127,7 @@ export class UID2 {
         this._opts = opts;
         this._apiClient = new Uid2ApiClient(this._opts.baseUrl ?? "https://prod.uidapi.com", 'uid2-sdk-' + UID2.VERSION);
 
-        const identity = this._opts.identity ? this._opts.identity : this.loadIdentityFromCookie()
+        const identity = this._opts.identity ? this._opts.identity : this._cookieManager.loadIdentityFromCookie();
         this.applyIdentity(identity);
         this._initComplete = true;
         this._callbackManager?.runCallbacks(EventType.InitCompleted, {});
@@ -144,9 +158,9 @@ export class UID2 {
     public abort(reason?: string) {
         this._initComplete = true;
         this._tokenPromiseHandler.rejectAllPromises(reason ?? new Error(`UID2 SDK aborted.`));
-        if (typeof this._refreshTimerId !== 'undefined') {
+        if (this._refreshTimerId) {
             clearTimeout(this._refreshTimerId);
-            this._refreshTimerId = undefined;
+            this._refreshTimerId = null;
         }
         if (this._apiClient) this._apiClient.abortActiveRequests();
     }
@@ -170,7 +184,7 @@ export class UID2 {
         return false;
     }
 
-    private updateStatus(status: any, statusText: string) {
+    private updateStatus(status: IdentityStatus, statusText: string) {
         const advertisingToken = this.getAdvertisingToken();
 
         const result = {
@@ -182,14 +196,14 @@ export class UID2 {
         if (this._opts?.callback) this._opts.callback(result);
     }
     
-    private setValidIdentity(identity: Uid2Identity, status: any, statusText: string) {
+    private setValidIdentity(identity: Uid2Identity, status: IdentityStatus, statusText: string) {
         if (!this._cookieManager) throw new Error("Cannot set identity before calling init.")
 
         this._identity = identity;
         this._cookieManager.setCookie(identity);
         this.updateStatus(status, statusText);
     }
-    private setFailedIdentity(status: any, statusText: string) {
+    private setFailedIdentity(status: IdentityStatus, statusText: string) {
         if (!this._cookieManager) throw new Error("Cannot set identity before calling init.")
 
         this._identity = undefined;
@@ -206,7 +220,7 @@ export class UID2 {
         }
         return { valid: true };
     }
-    private setIdentityWithChecks(identity: Uid2Identity, status: any, statusText: string) {
+    private setIdentityWithChecks(identity: Uid2Identity, status: IdentityStatus, statusText: string) {
         const validity = this.tryCheckIdentity(identity);
         if (validity.valid) {
             this.setValidIdentity(identity, status, statusText);
@@ -214,24 +228,8 @@ export class UID2 {
             this.setFailedIdentity(UID2.IdentityStatus.INVALID, validity.errorMessage);
         }
     }
-    private loadIdentityFromCookie() {
-        if (!this._cookieManager) throw new Error("Cannot load identity before calling init.")
-
-        const payload = this._cookieManager.getCookie();
-        if (payload) {
-            return JSON.parse(payload);
-        }
-    }
-
-    private enrichIdentity(identity: MakeOptional<Uid2Identity, 'refresh_from' | 'refresh_expires' | 'identity_expires'>, now: number) {
-        return {
-            refresh_from: now,
-            refresh_expires: now + 7 * 86400 * 1000, // 7 days
-            identity_expires: now + 4 * 3600 * 1000, // 4 hours
-            ...identity,
-        };
-    }
-    private applyIdentity(identity: Uid2Identity) {
+    
+    private applyIdentity(identity: Uid2Identity | null) {
         if (!identity) {
             this.setFailedIdentity(UID2.IdentityStatus.NO_IDENTITY, "Identity not available");
             return;
@@ -244,7 +242,6 @@ export class UID2 {
         }
 
         const now = Date.now();
-        identity = this.enrichIdentity(identity, now);
         if (hasExpired(identity.refresh_expires, now)) {
             this.setFailedIdentity(UID2.IdentityStatus.REFRESH_EXPIRED, "Identity expired, refresh expired");
             return;
@@ -285,12 +282,12 @@ export class UID2 {
                     }
                 },
                 (reason) => {
-                    this.handleRefreshFailure(identity, reason.message);
+                    this.handleRefreshFailure(identity, safeGetErrorMessage(reason));
                 }
             )
             .then(() => {
                 this._callbackManager.runCallbacks(EventType.IdentityUpdated, {});
-            });
+            }, (reason) => console.warn(`Call to UID2 API failed with reason: ${safeGetErrorMessage(reason)}`));
     }
     private handleRefreshFailure(identity: Uid2Identity, errorMessage: string) {
         const now = Date.now();
@@ -307,12 +304,12 @@ export class UID2 {
         this.setRefreshTimer();
     }
 
-    private _refreshTimerId: any;
+    private _refreshTimerId: ReturnType<typeof setTimeout> | null = null;
     private setRefreshTimer() {
         const timeout = this._opts?.refreshRetryPeriod ?? UID2.DEFAULT_REFRESH_RETRY_PERIOD_MS;
         this._refreshTimerId = setTimeout(() => {
             if (this.isLoginRequired()) return;
-            this.applyIdentity(this.loadIdentityFromCookie());
+            this.applyIdentity(this._cookieManager?.loadIdentityFromCookie() ?? null);
         }, timeout);
     }
 }
@@ -323,7 +320,7 @@ type UID2Setup = {
 declare global {
     interface Window {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        googletag: any;
+        googletag: GoogleTag;
         __uid2: UID2 | UID2Setup | undefined;
     }
 }

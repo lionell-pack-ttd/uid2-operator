@@ -2,6 +2,9 @@ module.exports = {
   extends: [
     'eslint:recommended',
   ],
+  ignorePatterns: [
+    'dist/*'
+  ],
   parser: '@typescript-eslint/parser',
   "parserOptions": {
       "ecmaVersion": 2018
@@ -34,6 +37,7 @@ module.exports = {
     "no-var": [
       "error"
     ],
+    "no-unused-vars": 0,
     "no-useless-constructor": 0,
     "no-mixed-spaces-and-tabs": [
       "error"
@@ -86,6 +90,7 @@ module.exports = {
           "refresh_expires",
           "refresh_from",
           "refresh_token",
+          "refresh_response_key",
         ]
       }
     ],
@@ -187,8 +192,20 @@ module.exports = {
       ],
       parserOptions: {
         project: [
-          './js/tsconfig.json'
+          './tsconfig.json'
         ]
+      }
+    },
+    {
+      "files": ["*.spec.ts", "*.test.ts"],
+      "rules": {
+        "@typescript-eslint/no-unsafe-call": 0,
+        "@typescript-eslint/no-explicit-any": 0,
+        "@typescript-eslint/no-unsafe-member-access": 0,
+        "@typescript-eslint/no-unsafe-assignment": 0,
+        "@typescript-eslint/no-unsafe-return": 0,
+        "@typescript-eslint/no-empty-function": 0,
+        "@typescript-eslint/no-unsafe-argument": 0,
       }
     }
   ]
