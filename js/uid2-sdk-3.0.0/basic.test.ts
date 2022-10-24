@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-empty-function */
 // Copyright (c) 2021 The Trade Desk, Inc
 //
 // Redistribution and use in source and binary forms, with or without
@@ -21,9 +23,10 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-import {expect, jest, describe, test, beforeEach, afterEach} from '@jest/globals';
-import {sdkWindow, UID2} from '../uid2-sdk-3.0.0';
+import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/globals';
+
 import * as mocks from '../mocks.js';
+import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
 
 let callback;
 let uid2: UID2;
@@ -79,18 +82,26 @@ describe('when initialising with invalid options', () => {
     expect(() => (uid2 as any).init()).toThrow(TypeError);
   });
   test('should fail on opts not being an object', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init(12345)).toThrow(TypeError);
   });
   test('should fail on opts being null', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init(null)).toThrow(TypeError);
   });
   test('should fail on no callback provided', () => {
     expect(() => uid2.init({ })).toThrow(TypeError);
   });
   test('should fail on callback not being a function', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init({ callback: 12345 })).toThrow(TypeError);
   });
   test('should fail on refreshRetryPeriod not being a number', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init({ callback: () => {}, refreshRetryPeriod: 'abc' })).toThrow(TypeError);
   });
   test('should fail on refreshRetryPeriod being less than 1 second', () => {
@@ -243,9 +254,9 @@ describe('when initialised without identity', () => {
     });
 
     test('should initiate token refresh', () => {
-      let cryptoMock = new mocks.CryptoMock(sdkWindow);
+      const cryptoMock = new mocks.CryptoMock(sdkWindow);
       expect(xhrMock.send).toHaveBeenCalledTimes(1);
-      let url = "https://prod.uidapi.com/v2/token/refresh";
+      const url = "https://prod.uidapi.com/v2/token/refresh";
       expect(xhrMock.open).toHaveBeenLastCalledWith("POST", url, true);
       expect(xhrMock.send).toHaveBeenLastCalledWith(identity.refresh_token);
       xhrMock.onreadystatechange();
@@ -272,9 +283,9 @@ describe('when initialised without identity', () => {
     });
 
     test('should initiate token refresh', () => {
-      let cryptoMock = new mocks.CryptoMock(sdkWindow);
+      const cryptoMock = new mocks.CryptoMock(sdkWindow);
       expect(xhrMock.send).toHaveBeenCalledTimes(1);
-      let url = "https://prod.uidapi.com/v2/token/refresh";
+      const url = "https://prod.uidapi.com/v2/token/refresh";
       expect(xhrMock.open).toHaveBeenLastCalledWith("POST", url, true);
       expect(xhrMock.send).toHaveBeenLastCalledWith(identity.refresh_token);
       xhrMock.onreadystatechange();
@@ -286,6 +297,8 @@ describe('when initialised without identity', () => {
 describe('when initialised with specific identity', () => {
   describe('when invalid identity is supplied', () => {
     beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       uid2.init({ callback: callback, identity: {} });
     });
 
