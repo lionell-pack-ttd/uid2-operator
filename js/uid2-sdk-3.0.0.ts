@@ -21,76 +21,21 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-import { Uid2ApiClient, Uid2Identity } from './uid2ApiClient';
-import { EventType, IdentityStatus, InitCallbackFunction, Uid2CallbackHandler, Uid2CallbackManager } from './uid2CallbackManager';
+import { setupGoogleTag } from './GoogleESPIntegration';
+import { Uid2ApiClient } from './uid2ApiClient';
+import { EventType, Uid2CallbackHandler, Uid2CallbackManager } from './uid2CallbackManager';
 import { UID2CookieManager } from './uid2CookieManager';
+import { Uid2Identity } from './Uid2Identity';
+import { IdentityStatus, notifyInitCallback } from './Uid2InitCallbacks';
+import { isUID2OptionsOrThrow, Uid2Options } from './Uid2Options';
 import { UID2PromiseHandler } from './uid2PromiseHandler';
 
-
-export type Uid2Options = {
-    callback?: InitCallbackFunction;
-    refreshRetryPeriod?: number;
-    identity?: Uid2Identity;
-    baseUrl?: string;
-    cookieDomain?: string;
-    cookiePath?: string;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function safeGetErrorMessage(error: any): string {
-    try {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        if (typeof error === 'object' && error && 'message' in error) return error.message as string;
-        if (typeof error === 'string') return error;
-    } catch {
-        console.warn(`Something went wrong processing a UID2 error`);
-     }
-    return `Error message unavailable`;
-}
-
-function isUID2OptionsOrThrow(maybeOpts: Uid2Options | unknown): maybeOpts is Uid2Options {
-    if (typeof maybeOpts !== 'object' || maybeOpts === null) {
-        throw new TypeError('opts must be an object');
-    }
-    const opts = maybeOpts as Uid2Options;
-    if (opts.callback !== undefined && typeof opts.callback !== 'function') {
-        throw new TypeError('opts.callback, if provided, must be a function');
-    }
-    if (typeof opts.refreshRetryPeriod !== 'undefined') {
-        if (typeof opts.refreshRetryPeriod !== 'number')
-            throw new TypeError('opts.refreshRetryPeriod must be a number');
-        else if (opts.refreshRetryPeriod < 1000)
-            throw new RangeError('opts.refreshRetryPeriod must be >= 1000');
-    }
-    return true;
-}
-
-type EncryptedSignalProvider = {id: string, collectorFunction: () => Promise<string> };
-type GoogleTag = { encryptedSignalProviders?: EncryptedSignalProvider[] };
-function setupGoogleTag() {
-    if (!window.googletag) {
-        window.googletag = {};
-    }
-    if (!window.googletag.encryptedSignalProviders) {
-        window.googletag.encryptedSignalProviders = [];
-    }
-    window.googletag.encryptedSignalProviders.push({
-        id: "uidapi.com",
-        collectorFunction: () => {
-            if (window.__uid2 && 'getAdvertisingTokenAsync' in window.__uid2) {
-                return window.__uid2.getAdvertisingTokenAsync();
-            } else {
-                return Promise.reject(new Error("UID2 SDK not present"));
-            }
-        },
-    });
-}
 function hasExpired(expiry: number, now=Date.now()) {
     return expiry <= now;
 }
 
 export class UID2 {
-    private _tokenPromiseHandler: UID2PromiseHandler;
+    
     static get VERSION() {
         return "3.0.0";
     }
@@ -104,36 +49,38 @@ export class UID2 {
     static EventType = EventType;
     static setupGoogleTag = setupGoogleTag;
 
+    // Push functions to this array to receive event notifications
     public callbacks: Uid2CallbackHandler[] = [];
+
+    // Dependencies initialised on construction
+    private _tokenPromiseHandler: UID2PromiseHandler;
+    private _callbackManager: Uid2CallbackManager;
+    
+    // Dependencies initialised on call to init due to requirement for options
+    private _cookieManager: UID2CookieManager | undefined;
+    private _apiClient: Uid2ApiClient | undefined;
+
+    // State
+    private _opts: Uid2Options = {};
+    private _identity: Uid2Identity | null | undefined;
+    private _initComplete = false;
+
     constructor(existingCallbacks: Uid2CallbackHandler[] | undefined = undefined) {
         if (existingCallbacks) this.callbacks = existingCallbacks;
 
         this._tokenPromiseHandler = new UID2PromiseHandler(this);
-
-        this._callbackManager = new Uid2CallbackManager(this, () => this._identity);
+        this._callbackManager = new Uid2CallbackManager(this, () => this.getIdentity());
         this._callbackManager.runCallbacks(EventType.SdkLoaded, {});
     }
 
     public init(opts: Uid2Options) {
         this.initInternal(opts);
     }
-    public initInternal(opts: Uid2Options | unknown) {
-        if (this._initComplete) {
-            throw new TypeError('Calling init() more than once is not allowed');
-        }
-        if (!isUID2OptionsOrThrow(opts)) throw new TypeError(`Options provided to UID2 init couldn't be validated.`);
-        
-        this._cookieManager = new UID2CookieManager({ ...opts, cookieName: UID2.COOKIE_NAME });
-        this._opts = opts;
-        this._apiClient = new Uid2ApiClient(this._opts.baseUrl ?? "https://prod.uidapi.com", 'uid2-sdk-' + UID2.VERSION);
-
-        const identity = this._opts.identity ? this._opts.identity : this._cookieManager.loadIdentityFromCookie();
-        this.applyIdentity(identity);
-        this._initComplete = true;
-        this._callbackManager?.runCallbacks(EventType.InitCompleted, {});
-    }
     public getAdvertisingToken() {
-        return this._identity && !this.temporarilyUnavailable() ? this._identity.advertising_token : undefined;
+        return this.getIdentity()?.advertising_token ?? undefined;
+    }
+    public getIdentity() {
+        return this._identity && !this.temporarilyUnavailable() ? this._identity : null;
     }
     // If the SDK has been initialized, returns a resolved promise with the current token (or rejected if not available)
     // Otherwise, returns a promise which will be resolved after init.
@@ -149,11 +96,10 @@ export class UID2 {
         this.abort(`UID2 SDK disconnected.`);
         // Note: This silently fails to clear the cookie if init hasn't been called and a cookieDomain is used!
         if (this._cookieManager) this._cookieManager.removeCookie();
-        else new UID2CookieManager({ cookieName: UID2.COOKIE_NAME }).removeCookie();
+        else new UID2CookieManager({ }).removeCookie();
         this._identity = undefined;
         this._callbackManager.runCallbacks(UID2.EventType.IdentityUpdated, { identity: null });
-    }
-    
+    }   
     // Note: This doesn't invoke callbacks. It's a hard, silent reset.
     public abort(reason?: string) {
         this._initComplete = true;
@@ -165,18 +111,26 @@ export class UID2 {
         if (this._apiClient) this._apiClient.abortActiveRequests();
     }
 
-    private _opts: Uid2Options | null = null;
-    private _identity: Uid2Identity | null | undefined;
-    private _initComplete = false;
+    private initInternal(opts: Uid2Options | unknown) {
+        if (this._initComplete) {
+            throw new TypeError('Calling init() more than once is not allowed');
+        }
+        if (!isUID2OptionsOrThrow(opts)) throw new TypeError(`Options provided to UID2 init couldn't be validated.`);
+        
+        this._opts = opts;
+        this._cookieManager = new UID2CookieManager({ ...opts });
+        this._apiClient = new Uid2ApiClient(opts);
 
-    private _cookieManager: UID2CookieManager | undefined;
-    private _apiClient: Uid2ApiClient | undefined;
-    private _callbackManager: Uid2CallbackManager;
+        const identity = this._opts.identity ? this._opts.identity : this._cookieManager.loadIdentityFromCookie();
+        const validatedIdentity = this.validateAndSetIdentity(identity);
+        if (validatedIdentity) this.triggerRefreshOrSetTimer(validatedIdentity);
+        this._initComplete = true;
+        this._callbackManager?.runCallbacks(EventType.InitCompleted, {});
+    }
     
     private isLoggedIn() {        
         return this._identity && !hasExpired(this._identity.refresh_expires);
     }
-
 
     private temporarilyUnavailable() {
         if (!this._identity && this._apiClient?.hasActiveRequests()) return true;
@@ -184,124 +138,47 @@ export class UID2 {
         return false;
     }
 
-    private updateStatus(status: IdentityStatus, statusText: string) {
-        const advertisingToken = this.getAdvertisingToken();
-
-        const result = {
-            advertisingToken: advertisingToken,
-            advertising_token: advertisingToken,
-            status: status,
-            statusText: statusText
-        };
-        if (this._opts?.callback) this._opts.callback(result);
-    }
-    
-    private setValidIdentity(identity: Uid2Identity, status: IdentityStatus, statusText: string) {
-        if (!this._cookieManager) throw new Error("Cannot set identity before calling init.")
-
-        this._identity = identity;
-        this._cookieManager.setCookie(identity);
-        this.updateStatus(status, statusText);
-    }
-    private setFailedIdentity(status: IdentityStatus, statusText: string) {
-        if (!this._cookieManager) throw new Error("Cannot set identity before calling init.")
-
-        this._identity = undefined;
-        this.abort();
-        this._cookieManager.removeCookie();
-        this.updateStatus(status, statusText);
-    }
-
-    private tryCheckIdentity(identity: Uid2Identity): {valid: true} | {valid: false, errorMessage: string} {
-        if (!identity.advertising_token) {            
-            return { valid: false, errorMessage: "advertising_token is not available or is not valid" };
-        } else if (!identity.refresh_token) {
-            return { valid: false, errorMessage: "refresh_token is not available or is not valid" };
-        }
-        return { valid: true };
-    }
-    private setIdentityWithChecks(identity: Uid2Identity, status: IdentityStatus, statusText: string) {
-        const validity = this.tryCheckIdentity(identity);
-        if (validity.valid) {
-            this.setValidIdentity(identity, status, statusText);
-        } else {            
-            this.setFailedIdentity(UID2.IdentityStatus.INVALID, validity.errorMessage);
-        }
-    }
-    
-    private applyIdentity(identity: Uid2Identity | null) {
+    private getIdentityStatus(identity: Uid2Identity | null): {valid: true, identity: Uid2Identity, errorMessage: string, status: IdentityStatus } | {valid: false, errorMessage: string, status: IdentityStatus, identity: null } {
         if (!identity) {
-            this.setFailedIdentity(UID2.IdentityStatus.NO_IDENTITY, "Identity not available");
-            return;
+            return { valid: false, errorMessage: "Identity not available", status: UID2.IdentityStatus.NO_IDENTITY, identity: null };
         }
+        if (!identity.advertising_token) {            
+            return { valid: false, errorMessage: "advertising_token is not available or is not valid", status: IdentityStatus.INVALID, identity: null };
+        }
+        if (!identity.refresh_token) {
+            return { valid: false, errorMessage: "refresh_token is not available or is not valid", status: IdentityStatus.INVALID, identity: null };
+        }
+        if (hasExpired(identity.refresh_expires, Date.now())) {
+            return { valid: false, errorMessage: "Identity expired, refresh expired", status: IdentityStatus.REFRESH_EXPIRED, identity: null };
+        }
+        if (hasExpired(identity.identity_expires, Date.now())) {
+            return { valid: true, errorMessage: "Identity expired, refresh still valid", status: IdentityStatus.EXPIRED, identity };
+        }
+        if (typeof this._identity === 'undefined')
+            return { valid: true, identity, status: IdentityStatus.ESTABLISHED, errorMessage: "Identity established" };
+        return { valid: true, identity, status: IdentityStatus.REFRESHED, errorMessage: "Identity refreshed" };
+    }
+    private validateAndSetIdentity(identity: Uid2Identity | null, status?: IdentityStatus, statusText?: string): Uid2Identity | null {
+        if (!this._cookieManager) throw new Error("Cannot set identity before calling init.")
+        const validity = this.getIdentityStatus(identity)
+        if (validity.identity && validity.identity?.advertising_token === this._identity?.advertising_token) return validity.identity;
 
-        const validity = this.tryCheckIdentity(identity);
-        if (!validity.valid) {
-            this.setFailedIdentity(UID2.IdentityStatus.INVALID, validity.errorMessage);
-            return;
+        this._identity = validity.identity;
+        if (validity.identity) {
+            this._cookieManager.setCookie(validity.identity);
+        } else {
+            this.abort();
+            this._cookieManager.removeCookie();
         }
-
-        const now = Date.now();
-        if (hasExpired(identity.refresh_expires, now)) {
-            this.setFailedIdentity(UID2.IdentityStatus.REFRESH_EXPIRED, "Identity expired, refresh expired");
-            return;
-        }
-
-        if (!hasExpired(identity.identity_expires, now)) {
-            if (typeof this._identity === 'undefined') {
-                this.setIdentityWithChecks(identity, UID2.IdentityStatus.ESTABLISHED, "Identity established");
-            } else if (identity.advertising_token !== this._identity?.advertising_token) {
-                // identity must have been refreshed from another tab
-                this.setIdentityWithChecks(identity, UID2.IdentityStatus.REFRESHED, "Identity refreshed");
-            } 
-        }
-        
-        if (hasExpired(identity.refresh_from, now)) {
-            this.refreshToken(identity);
+        notifyInitCallback(this._opts, status ?? validity.status, statusText ?? validity.errorMessage, this.getAdvertisingToken());
+        return validity.identity;
+    }
+    private triggerRefreshOrSetTimer(validIdentity: Uid2Identity) {
+        if (hasExpired(validIdentity.refresh_from, Date.now())) {
+            this.refreshToken(validIdentity);
         } else {
             this.setRefreshTimer();
         }
-    }
-
-    private refreshToken(identity: Uid2Identity) {
-        if (!this._apiClient) throw new Error("Cannot refresh the token before calling init.")
-
-        this._apiClient.callRefreshApi(identity)
-            .then((response) => {
-                    switch (response.status) {
-                        case 'success':
-                            this.setIdentityWithChecks(response.identity, UID2.IdentityStatus.REFRESHED, "Identity refreshed");
-                            this.setRefreshTimer();
-                            break;
-                        case 'optout':
-                            this.setFailedIdentity(UID2.IdentityStatus.OPTOUT, "User opted out");
-                            break;
-                        case 'expired_token':
-                            this.setFailedIdentity(UID2.IdentityStatus.REFRESH_EXPIRED, "Refresh token expired");
-                            break;
-                    }
-                },
-                (reason) => {
-                    this.handleRefreshFailure(identity, safeGetErrorMessage(reason));
-                }
-            )
-            .then(() => {
-                this._callbackManager.runCallbacks(EventType.IdentityUpdated, {});
-            }, (reason) => console.warn(`Call to UID2 API failed with reason: ${safeGetErrorMessage(reason)}`));
-    }
-    private handleRefreshFailure(identity: Uid2Identity, errorMessage: string) {
-        const now = Date.now();
-        if (hasExpired(identity.refresh_expires, now)) {
-            this.setFailedIdentity(UID2.IdentityStatus.REFRESH_EXPIRED, "Refresh expired; token refresh failed: " + errorMessage);
-            return;
-        }
-        
-        if (hasExpired(identity.identity_expires, now)) {
-            this.setValidIdentity(identity, UID2.IdentityStatus.EXPIRED, "Token refresh failed for expired identity: " + errorMessage);
-        } else {
-            this.setIdentityWithChecks(identity, UID2.IdentityStatus.ESTABLISHED, "Identity established; token refresh failed: " + errorMessage)
-        }
-        this.setRefreshTimer();
     }
 
     private _refreshTimerId: ReturnType<typeof setTimeout> | null = null;
@@ -309,8 +186,39 @@ export class UID2 {
         const timeout = this._opts?.refreshRetryPeriod ?? UID2.DEFAULT_REFRESH_RETRY_PERIOD_MS;
         this._refreshTimerId = setTimeout(() => {
             if (this.isLoginRequired()) return;
-            this.applyIdentity(this._cookieManager?.loadIdentityFromCookie() ?? null);
+            const validatedIdentity = this.validateAndSetIdentity(this._cookieManager?.loadIdentityFromCookie() ?? null);
+            if (validatedIdentity) this.triggerRefreshOrSetTimer(validatedIdentity);
         }, timeout);
+    }
+
+    private refreshToken(identity: Uid2Identity) {
+        const apiClient = this._apiClient;
+        if (!apiClient) throw new Error("Cannot refresh the token before calling init.")
+    
+        apiClient.callRefreshApi(identity)
+            .then((response) => {
+                    switch (response.status) {
+                        case 'success':
+                            this.validateAndSetIdentity(response.identity, IdentityStatus.REFRESHED, "Identity refreshed");
+                            this.setRefreshTimer();
+                            break;
+                        case 'optout':
+                            this.validateAndSetIdentity(null, IdentityStatus.OPTOUT, "User opted out");
+                            break;
+                        case 'expired_token':
+                            this.validateAndSetIdentity(null, IdentityStatus.REFRESH_EXPIRED, "Refresh token expired");
+                            break;
+                    }
+                },
+                (reason) => {
+                    console.warn(`Encountered an error refreshing the UID2 token`, reason);
+                    this.validateAndSetIdentity(identity);
+                    if (!hasExpired(identity.refresh_expires, Date.now())) this.setRefreshTimer();
+                }
+            )
+            .then(() => {
+                this._callbackManager.runCallbacks(EventType.IdentityUpdated, {});
+            }, (reason) => console.warn(`UID2 callbacks on identity event failed.`, reason));
     }
 }
 
@@ -319,8 +227,6 @@ type UID2Setup = {
 }
 declare global {
     interface Window {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        googletag: GoogleTag;
         __uid2: UID2 | UID2Setup | undefined;
     }
 }

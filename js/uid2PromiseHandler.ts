@@ -13,8 +13,11 @@ export class UID2PromiseHandler {
         if (eventType === EventType.InitCompleted) {
             this._seenInitOrRejectAll = true;
             this._promises.forEach(p => {
-                if ('identity' in payload && payload.identity) p.resolve(payload.identity.advertising_token);
-                else p.reject(`No identity available.`);
+                if ('identity' in payload && payload.identity) {
+                     p.resolve(payload.identity.advertising_token);
+                } else {
+                    p.reject(new Error(`No identity available.`));
+                }
             });
             this._promises = [];
         }

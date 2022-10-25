@@ -1,31 +1,5 @@
-import { safeGetErrorMessage } from "./uid2-sdk-3.0.0";
-
-interface IdentityBase {
-    advertising_token: string;
-    identity_expires: number;
-    refresh_from: number;
-    refresh_token: string;
-    refresh_expires: number;
-}
-interface IdentityV2 extends IdentityBase {
-    // eslint-disable-next-line camelcase
-    refresh_response_key: string;
-}
-interface IdentityV1 extends IdentityBase {
-    // eslint-disable-next-line camelcase
-    refresh_response_key: never;
-}
-export type Uid2Identity = IdentityV1 | IdentityV2;
-export function isValidIdentity(identity: Uid2Identity | unknown): identity is Uid2Identity {
-    return (typeof identity === 'object' &&
-        identity !== null &&
-        'advertising_token' in identity &&
-        'identity_expires' in identity &&
-        'refresh_from' in identity &&
-        'refresh_token' in identity &&
-        'refresh_expires' in identity
-    );
-}
+import { UID2 } from "./uid2-sdk-3.0.0";
+import { isValidIdentity, Uid2Identity } from "./Uid2Identity";
 
 export type RefreshResultWithoutIdentity = { status: ResponseStatusWithoutBody };
 export type SuccessRefreshResult = {
@@ -54,14 +28,17 @@ function isValidRefreshResponse(response: unknown | UnvalidatedRefreshResponse):
 function isUnvalidatedRefreshResponse(response: unknown): response is UnvalidatedRefreshResponse {
     return typeof(response) === 'object' && response !== null && 'status' in response;
 }
+export type Uid2ApiClientOptions = {
+    baseUrl?: string;
+};
 
 export class Uid2ApiClient {
     private _baseUrl: string;
     private _clientVersion: string;
     private _requestsInFlight: XMLHttpRequest[] = [];
-    constructor(baseUrl: string, clientVersion: string) {
-        this._baseUrl = baseUrl;
-        this._clientVersion = clientVersion;
+    constructor(opts: Uid2ApiClientOptions) {
+        this._baseUrl = opts.baseUrl ?? "https://prod.uidapi.com";
+        this._clientVersion = 'uid2-sdk-' + UID2.VERSION;
     }
 
     private createArrayBuffer(text: string) {
@@ -98,7 +75,8 @@ export class Uid2ApiClient {
         req.open("POST", url, true);
         req.setRequestHeader('X-UID2-Client-Version', this._clientVersion);
         let resolvePromise: (result: RefreshResult) => void;
-        let rejectPromise: (reason: string) => void;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let rejectPromise: (reason?: any) => void;
         const promise = new Promise<RefreshResult>((resolve, reject) => {
             resolvePromise = resolve;
             rejectPromise = reject;
@@ -131,11 +109,11 @@ export class Uid2ApiClient {
                             const result = this.ResponseToRefreshResult(response);
                             if (typeof result === 'string') rejectPromise(result);
                             else resolvePromise(result);
-                        }, (reason) => console.warn(`Call to UID2 API failed with reason: ${safeGetErrorMessage(reason)}`))
-                    }, (reason) => console.warn(`Call to UID2 API failed with reason: ${safeGetErrorMessage(reason)}`))
+                        }, (reason) => console.warn(`Call to UID2 API failed`, reason))
+                    }, (reason) => console.warn(`Call to UID2 API failed`, reason))
                 }
             } catch (err) {
-                rejectPromise(safeGetErrorMessage(err));
+                rejectPromise(err);
             }
         };
         req.send(refreshDetails.refresh_token);

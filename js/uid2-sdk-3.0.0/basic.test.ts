@@ -646,7 +646,7 @@ describe('when expired identity is refreshed on init', () => {
     });
 
     test('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      expect(callback).toHaveBeenNthCalledWith(2, expect.objectContaining({
         advertisingToken: updatedIdentity.advertising_token,
         advertising_token: updatedIdentity.advertising_token,
         status: UID2.IdentityStatus.REFRESHED,
@@ -697,7 +697,7 @@ describe('when expired identity is refreshed on init', () => {
     });
 
     test('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      expect(callback).toHaveBeenNthCalledWith(2, expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
         status: UID2.IdentityStatus.REFRESH_EXPIRED,
@@ -748,7 +748,7 @@ describe('when expired identity is refreshed on init', () => {
     });
 
     test('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      expect(callback).toHaveBeenNthCalledWith(2, expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
         status: UID2.IdentityStatus.REFRESH_EXPIRED,

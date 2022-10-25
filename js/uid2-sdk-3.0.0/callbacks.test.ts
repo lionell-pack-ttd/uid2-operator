@@ -32,10 +32,11 @@ let asyncCallback: jest.Mock<Uid2CallbackHandler>;
 let uid2: UID2;
 let xhrMock: any;
 
+const debugOutput = false;
+
 let _cryptoMock;
 
 mocks.setupFakeTime();
-console.log(UID2.IdentityStatus);
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -49,8 +50,10 @@ beforeEach(() => {
   mocks.setCookieMock(sdkWindow.document);
   sdkWindow.__uid2 = { callbacks: [] };
   asyncCallback = jest.fn((event, payload) => {
-    console.log("Async Callback Event:", event);
-    console.log("Payload:", payload);
+    if (debugOutput) {
+      console.log("Async Callback Event:", event);
+      console.log("Payload:", payload);
+    }
   });
 });
 
@@ -79,7 +82,6 @@ describe("when a callback is provided", () => {
     test("it should be provided with the loaded identity", () => {
       uid2.callbacks.push(asyncCallback);
       uid2.init({ callback: callback, identity: identity });
-      console.log(asyncCallback.mock.calls.slice(-1)[0][1]);
       expect(asyncCallback.mock.calls.slice(-1)[0][1]).toMatchObject({ identity });
     });
   });
@@ -112,7 +114,6 @@ describe("when a callback is provided", () => {
       xhrMock.sendRefreshApiResponse(refreshedIdentity);
       await mocks.flushPromises();
 
-      console.log('Expecting...');
       expect(asyncCallback.mock.calls.length).toBe(callsBeforeRefresh+1);
       expect(asyncCallback.mock.calls[callsBeforeRefresh][0]).toBe(UID2.EventType.IdentityUpdated);
       expect(asyncCallback.mock.calls[callsBeforeRefresh][1]).toMatchObject({ identity: refreshedIdentity });

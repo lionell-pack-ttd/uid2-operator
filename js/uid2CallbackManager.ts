@@ -1,5 +1,5 @@
 import { UID2 } from "./uid2-sdk-3.0.0";
-import { Uid2Identity } from "./uid2ApiClient";
+import { Uid2Identity } from "./Uid2Identity";
 
 export enum EventType {
   InitCompleted = "InitCompleted",
@@ -7,24 +7,9 @@ export enum EventType {
   SdkLoaded = "SdkLoaded",
 }
 
-export enum IdentityStatus {
-  ESTABLISHED = 0,
-  REFRESHED = 1,
-  EXPIRED = 100,
-  NO_IDENTITY = -1,
-  INVALID = -2,
-  REFRESH_EXPIRED = -3,
-  OPTOUT = -4,
-}
 
 export type Uid2CallbackPayload = SdkLoadedPayload | PayloadWithIdentity;
-type InitCallbackPayload = {
-  advertisingToken?: string;
-  advertising_token?: string;
-  status: IdentityStatus;
-  statusText: string;
-};
-export type InitCallbackFunction = (_: InitCallbackPayload) => void;
+
 export type Uid2CallbackHandler = (
   event: EventType,
   payload: Uid2CallbackPayload

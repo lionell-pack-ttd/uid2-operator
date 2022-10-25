@@ -21,10 +21,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-import { Uid2Options } from "./uid2-sdk-3.0.0";
-import { isValidIdentity, Uid2Identity } from './uid2ApiClient';
+import { UID2 } from "./uid2-sdk-3.0.0";
+import { isValidIdentity, Uid2Identity } from "./Uid2Identity";
 
-type UID2CookieOptions = Pick<Uid2Options, 'cookieDomain' | 'cookiePath'> & { cookieName: string };
+export type UID2CookieOptions = {
+    cookieDomain?: string;
+    cookiePath?: string;
+};
 type LegacyUid2SDKCookie = Omit<Uid2Identity, 'refresh_from' | 'refresh_expires' | 'identity_expires'>;
 
 export function isLegacyCookie(cookie: unknown): cookie is LegacyUid2SDKCookie {
@@ -46,6 +49,7 @@ function enrichIdentity(identity: LegacyUid2SDKCookie, now: number) {
 
 export class UID2CookieManager {
     private _opts: UID2CookieOptions;
+    private _cookieName: string = UID2.COOKIE_NAME;
     constructor(opts: UID2CookieOptions) {
         this._opts = opts;
     }
@@ -53,19 +57,19 @@ export class UID2CookieManager {
         const value = JSON.stringify(identity);
         const expires = new Date(identity.refresh_expires);
         const path = this._opts.cookiePath ?? "/";
-        let cookie = this._opts.cookieName + "=" + encodeURIComponent(value) + " ;path=" + path + ";expires=" + expires.toUTCString();
+        let cookie = this._cookieName + "=" + encodeURIComponent(value) + " ;path=" + path + ";expires=" + expires.toUTCString();
         if (typeof this._opts.cookieDomain !== 'undefined') {
             cookie += ";domain=" + this._opts.cookieDomain;
         }
         document.cookie = cookie;
     }
     public removeCookie() {
-        document.cookie = this._opts.cookieName + "=;expires=Tue, 1 Jan 1980 23:59:59 GMT";
+        document.cookie = this._cookieName + "=;expires=Tue, 1 Jan 1980 23:59:59 GMT";
     }
     private getCookie() {
         const docCookie = document.cookie;
         if (docCookie) {
-            const payload = docCookie.split('; ').find(row => row.startsWith(this._opts.cookieName+'='));
+            const payload = docCookie.split('; ').find(row => row.startsWith(this._cookieName+'='));
             if (payload) {
                 return decodeURIComponent(payload.split('=')[1]);
             }
