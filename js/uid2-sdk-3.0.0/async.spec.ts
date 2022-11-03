@@ -24,7 +24,8 @@
 import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import * as mocks from '../mocks.js';
-import { UID2 } from '../uid2-sdk-3.0.0';
+import { __uid2InternalHandleScriptLoad,sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
+import { EventType } from '../uid2CallbackManager';
 
 let callback: any;
 let uid2: UID2;
@@ -167,5 +168,33 @@ describe('when getAdvertisingTokenAsync is called before refresh on init complet
       uid2.disconnect();
       return expect(uid2.getAdvertisingTokenAsync()).rejects.toBeInstanceOf(Error);
     });
+  });
+});
+
+describe('when window.__uid2.init is called on SdkLoaded from a callback', () => {
+  const identity = makeIdentity();
+  // Reset window UID2 instance
+  const callback = jest.fn((eventType: EventType) => {
+    if (eventType === UID2.EventType.SdkLoaded) {
+      console.log('Trying');
+      try {
+        (sdkWindow.__uid2 as UID2).init({ identity });
+      } catch (ex) {
+        console.log(ex);
+        throw ex;
+      }
+      console.log('Succeeded');
+    }
+  });
+  test('the SDK should be initialized correctly', () => {
+    sdkWindow.__uid2 = { callbacks: [] };
+    sdkWindow.__uid2.callbacks!.push(callback);
+    expect(callback).toHaveBeenCalledTimes(0);
+    __uid2InternalHandleScriptLoad();
+    jest.runOnlyPendingTimers();
+    if (!(sdkWindow.__uid2 instanceof UID2)) throw Error('UID2 should be ready to use by the time SdkLoaded is triggered.');
+    expect(callback).toHaveBeenNthCalledWith(1, UID2.EventType.SdkLoaded, expect.anything());
+    console.log(identity.advertising_token);
+    expect(sdkWindow.__uid2.getAdvertisingToken()).toBe(identity.advertising_token);
   });
 });

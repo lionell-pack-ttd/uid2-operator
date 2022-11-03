@@ -40,13 +40,12 @@ export class Uid2CallbackManager {
           identity: this._getIdentity() ?? null,
         });
     }
-    Uid2CallbackManager._sentSdkLoaded = true;
-    this._sentInit = true;
     return pushResult;
   }
 
   public runCallbacks(event: EventType, payload: Uid2CallbackPayload) {
     if (event === EventType.InitCompleted) this._sentInit = true;
+    if (event === EventType.SdkLoaded) Uid2CallbackManager._sentSdkLoaded = true;
     if (!this._sentInit && event !== EventType.SdkLoaded) return;
 
     const enrichedPayload = { ...payload, identity: this._getIdentity() ?? null };

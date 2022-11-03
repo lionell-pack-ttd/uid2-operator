@@ -66,4 +66,20 @@ All new source files _must_ be in TypeScript, with useful type information for a
 
 # Creating/publishing artifacts
 
-To be completed.
+All commands should be run from the `js/` folder in this repo.
+
+## To create a production-ready build of the SDK with no source-maps:
+
+`npm run build` - the output will end up in `js/dist/bundle.js`.
+
+## To create a development build of the SDK with full source-maps, and monitor for changes:
+
+`npm run watch` - the output will end up in `js/dist/bundle.js` and will be rebuilt whenever any related files are changed.
+
+## To output the development build to the uid2-examples folder, with watch:
+
+First, ensure that this repo and the `uid2-examples` repo are checked out into the same parent folder, with folders matching the repository names.
+
+`npm run uid2-examples`
+
+The output will end up in `js/dist/bundle.js` and additional copies will be placed into the examples folders. Note that this is not currently being consumed by the examples and further work is required before this works as intended.

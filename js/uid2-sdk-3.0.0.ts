@@ -1,26 +1,3 @@
-// Copyright (c) 2021 The Trade Desk, Inc
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-//    this list of conditions and the following disclaimer.
-// 2. Redistributions in binary form must reproduce the above copyright notice,
-//    this list of conditions and the following disclaimer in the documentation
-//    and/or other materials provided with the distribution.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
-
 import { setupGoogleTag } from './GoogleESPIntegration';
 import { Uid2ApiClient } from './uid2ApiClient';
 import { EventType, Uid2CallbackHandler, Uid2CallbackManager } from './uid2CallbackManager';
@@ -33,6 +10,8 @@ import { UID2PromiseHandler } from './uid2PromiseHandler';
 function hasExpired(expiry: number, now=Date.now()) {
     return expiry <= now;
 }
+
+let postUid2CreateCallback: null | (() => void) = null;
 
 export class UID2 {
     
@@ -70,7 +49,15 @@ export class UID2 {
 
         this._tokenPromiseHandler = new UID2PromiseHandler(this);
         this._callbackManager = new Uid2CallbackManager(this, () => this.getIdentity());
-        this._callbackManager.runCallbacks(EventType.SdkLoaded, {});
+        const runCallbacks = () => {
+            this._callbackManager.runCallbacks(EventType.SdkLoaded, {});
+        };
+        if (window.__uid2 instanceof UID2) {
+            runCallbacks();
+        } else {
+            // Need to defer running callbacks until this is assigned to the window global
+            postUid2CreateCallback = runCallbacks;
+        }
     }
 
     public init(opts: Uid2Options) {
@@ -231,10 +218,12 @@ declare global {
     }
 }
 
-(function() {
+export function __uid2InternalHandleScriptLoad() {
     const callbacks = window?.__uid2?.callbacks || [];
     window.__uid2 = new UID2(callbacks);
-})();
+    if (postUid2CreateCallback) postUid2CreateCallback();
+}
+__uid2InternalHandleScriptLoad();
 
 UID2.setupGoogleTag();
 
