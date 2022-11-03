@@ -47,6 +47,11 @@ class XhrMock {
     return 4;
   }
 
+  sendRefreshApiResponse(identity) {
+    this.responseText = btoa(JSON.stringify({ status: 'success', body: identity }));
+    this.onreadystatechange(new Event(''));
+  }  
+
   constructor(window) {
     this.open             = jest.fn();
     this.send             = jest.fn();
@@ -65,8 +70,8 @@ class XhrMock {
 }
 
 class CryptoMock {
-  static decrypt_output = "decrypted_message";
   constructor(window) {
+    this.decryptOutput = "decrypted_message";
     this.getRandomValues = jest.fn();
     this.subtle = {
       encrypt: jest.fn(),
@@ -74,24 +79,24 @@ class CryptoMock {
       importKey: jest.fn(),
     };
     let mockDecryptResponse = jest.fn();
-    mockDecryptResponse.mockImplementation((fn) => fn(CryptoMock.decrypt_output))
+    mockDecryptResponse.mockImplementation((fn) => fn(this.decryptOutput))
 
     this.subtle.decrypt.mockImplementation((settings, key, data) => {
-      return {then: jest.fn().mockImplementation((func) => {
+      return { then: jest.fn().mockImplementation((func) => {
         func(Buffer.concat([settings.iv, data]));
-        return {catch: jest.fn()}
-      })}
+        return { catch: jest.fn() }
+      }) }
     });
 
-    this.subtle.importKey.mockImplementation((format, key, algorithm, extractable, keyUsages) => {
-      return {then: jest.fn().mockImplementation((func) => {
+    this.subtle.importKey.mockImplementation((_format, _key, _algorithm, _extractable, _keyUsages) => {
+      return { then: jest.fn().mockImplementation((func) => {
         func("key");
-        return {catch: jest.fn()}
-      })}
+        return { catch: jest.fn() }
+      }) }
     });
 
     this.applyTo = (window) => {
-      window.crypto = this;
+      Object.defineProperty(window, 'crypto', { value: this });
     }
 
     this.applyTo(window);
@@ -119,6 +124,11 @@ function setCookieMock(document) {
 
 function setUid2Cookie(value) {
   document.cookie = sdk.UID2.COOKIE_NAME + '=' + encodeURIComponent(JSON.stringify(value));
+}
+
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
 }
 
 function getUid2Cookie() {
@@ -168,16 +178,17 @@ function makeIdentityV2(overrides) {
   };
 }
 module.exports = {
-  CookieMock: CookieMock,
-  XhrMock: XhrMock,
-  CryptoMock: CryptoMock,
-  setupFakeTime: setupFakeTime,
-  resetFakeTime: resetFakeTime,
-  setCookieMock: setCookieMock,
-  setUid2Cookie: setUid2Cookie,
-  getUid2Cookie: getUid2Cookie,
-  setEuidCookie: setEuidCookie,
-  getEuidCookie: getEuidCookie,
-  makeIdentityV1: makeIdentityV1,
-  makeIdentityV2: makeIdentityV2,
+  CookieMock,
+  XhrMock,
+  CryptoMock,
+  setupFakeTime,
+  resetFakeTime,
+  setCookieMock,
+  setUid2Cookie,
+  getUid2Cookie,
+  setEuidCookie,
+  getEuidCookie,
+  makeIdentityV1,
+  makeIdentityV2,
+  flushPromises,
 };

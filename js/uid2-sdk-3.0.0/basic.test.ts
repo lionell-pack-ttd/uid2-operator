@@ -21,22 +21,22 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-const sdk = require('../../static/js/uid2-sdk-2.0.0.js');
-const mocks = require('../mocks.js');
+import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/globals';
 
-let callback;
-let uid2;
-let xhrMock;
-let cryptoMock;
+import * as mocks from '../mocks.js';
+import { sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
+
+let callback: any;
+let uid2: UID2;
+let xhrMock: any;
 
 mocks.setupFakeTime();
 
 beforeEach(() => {
   callback = jest.fn();
-  uid2 = new sdk.UID2();
-  xhrMock = new mocks.XhrMock(sdk.window);
-  cryptoMock = new mocks.CryptoMock(sdk.window);
-  mocks.setCookieMock(sdk.window.document);
+  uid2 = new UID2();
+  xhrMock = new mocks.XhrMock(sdkWindow);
+  mocks.setCookieMock(sdkWindow.document);
 });
 
 afterEach(() => {
@@ -49,52 +49,66 @@ const makeIdentityV1 = mocks.makeIdentityV1;
 const makeIdentityV2 = mocks.makeIdentityV2;
 
 describe('When google tag setup is called', () => {
-  it('should not fail when there is no googletag', () => {
-    sdk.window.googletag = null;
-    expect(() => sdk.UID2.setupGoogleTag()).not.toThrow(TypeError);
+  test('should not fail when there is no googletag', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    sdkWindow.googletag = null;
+    expect(() => UID2.setupGoogleTag()).not.toThrow(TypeError);
   });
-  it('should not fail when there is no googletag encryptedSignalProviders', () => {
-    sdk.window.googletag = { encryptedSignalProviders: null };
-    expect(() => sdk.UID2.setupGoogleTag()).not.toThrow(TypeError);
+  test('should not fail when there is no googletag encryptedSignalProviders', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    sdkWindow.googletag = { encryptedSignalProviders: null };
+    expect(() => UID2.setupGoogleTag()).not.toThrow(TypeError);
   });
-  it('should push if googletag has encryptedSignalProviders', () => {
+  test('should push if googletag has encryptedSignalProviders', () => {
     const mockPush = jest.fn();
-    sdk.window.googletag = { encryptedSignalProviders: { push: mockPush } };
-    sdk.UID2.setupGoogleTag();
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    sdkWindow.googletag = { encryptedSignalProviders: { push: mockPush } };
+    UID2.setupGoogleTag();
     expect(mockPush.mock.calls.length).toBe(1);
   });
 });
 
 describe('initial state before init() is called', () => {
-  it('should be in initialising state', () => {
-    expect(uid2).toBeInInitialisingState();
+  test('should be in initialising state', () => {
+    (expect(uid2) as any).toBeInInitialisingState();
   });
 
-  it('getAdvertisingToken should return undefined', () => {
+  test('getAdvertisingToken should return undefined', () => {
     expect(uid2.getAdvertisingToken()).toBeUndefined();
   });
 });
 
 describe('when initialising with invalid options', () => {
-  it('should fail on no opts', () => {
-    expect(() => uid2.init()).toThrow(TypeError);
+  test('should fail on no opts', () => {
+    expect(() => (uid2 as any).init()).toThrow(TypeError);
   });
-  it('should fail on opts not being an object', () => {
+  test('should fail on opts not being an object', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init(12345)).toThrow(TypeError);
   });
-  it('should fail on opts being null', () => {
+  test('should fail on opts being null', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init(null)).toThrow(TypeError);
   });
-  it('should fail on no callback provided', () => {
-    expect(() => uid2.init({ })).toThrow(TypeError);
+  test('should work on no callback provided', () => {
+    expect(() => uid2.init({ })).not.toThrow(TypeError);
   });
-  it('should fail on callback not being a function', () => {
+  test('should fail on callback not being a function', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init({ callback: 12345 })).toThrow(TypeError);
   });
-  it('should fail on refreshRetryPeriod not being a number', () => {
+  test('should fail on refreshRetryPeriod not being a number', () => {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     expect(() => uid2.init({ callback: () => {}, refreshRetryPeriod: 'abc' })).toThrow(TypeError);
   });
-  it('should fail on refreshRetryPeriod being less than 1 second', () => {
+  test('should fail on refreshRetryPeriod being less than 1 second', () => {
     expect(() => uid2.init({ callback: () => {}, refreshRetryPeriod: 1 })).toThrow(RangeError);
   });
 });
@@ -110,22 +124,22 @@ describe('when initialised without identity', () => {
       uid2.init({ callback: callback });
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: sdk.UID2.IdentityStatus.NO_IDENTITY,
+        status: UID2.IdentityStatus.NO_IDENTITY,
       }));
     });
-    it('should not set cookie', () => {
+    test('should not set cookie', () => {
       expect(getUid2Cookie()).toBeUndefined();
     });
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in unavailable state', () => {
-      expect(uid2).toBeInUnavailableState();
+    test('should be in unavailable state', () => {
+      (expect(uid2) as any).toBeInUnavailableState();
     });
   });
 
@@ -135,22 +149,22 @@ describe('when initialised without identity', () => {
       uid2.init({ callback: callback });
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: sdk.UID2.IdentityStatus.INVALID,
+        status: UID2.IdentityStatus.NO_IDENTITY,
       }));
     });
-    it('should clear cookie', () => {
+    test('should clear cookie', () => {
       expect(getUid2Cookie()).toBeUndefined();
     });
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in unavailable state', () => {
-      expect(uid2).toBeInUnavailableState();
+    test('should be in unavailable state', () => {
+      (expect(uid2) as any).toBeInUnavailableState();
     });
   });
 
@@ -162,22 +176,22 @@ describe('when initialised without identity', () => {
       uid2.init({ callback: callback });
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: identity.advertising_token,
         advertising_token: identity.advertising_token,
-        status: sdk.UID2.IdentityStatus.ESTABLISHED,
+        status: UID2.IdentityStatus.ESTABLISHED,
       }));
     });
-    it('should set cookie', () => {
+    test('should set cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(identity.advertising_token);
     });
-    it('should set refresh timer', () => {
+    test('should set refresh timer', () => {
       expect(setTimeout).toHaveBeenCalledTimes(1);
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in available state', () => {
-      expect(uid2).toBeInAvailableState(identity.advertising_token);
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState(identity.advertising_token);
     });
   });
 
@@ -191,22 +205,22 @@ describe('when initialised without identity', () => {
       uid2.init({ callback: callback });
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: sdk.UID2.IdentityStatus.REFRESH_EXPIRED,
+        status: UID2.IdentityStatus.REFRESH_EXPIRED,
       }));
     });
-    it('should clear cookie', () => {
+    test('should clear cookie', () => {
       expect(getUid2Cookie()).toBeUndefined();
     });
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in unavailable state', () => {
-      expect(uid2).toBeInUnavailableState();
+    test('should be in unavailable state', () => {
+      (expect(uid2) as any).toBeInUnavailableState();
     });
   });
 
@@ -220,15 +234,15 @@ describe('when initialised without identity', () => {
       uid2.init({ callback: callback });
     });
 
-    it('should initiate token refresh', () => {
+    test('should initiate token refresh', () => {
       expect(xhrMock.send).toHaveBeenCalledTimes(1);
     });
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in initialising state', () => {
-      expect(uid2).toBeInInitialisingState();
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState();
     });
   });
 
@@ -243,21 +257,22 @@ describe('when initialised without identity', () => {
       uid2.init({ callback: callback });
     });
 
-    it('should initiate token refresh', () => {
+    test('should initiate token refresh', () => {
+      const cryptoMock = new mocks.CryptoMock(sdkWindow);
       expect(xhrMock.send).toHaveBeenCalledTimes(1);
-      let url = "https://prod.uidapi.com/v2/token/refresh";
+      const url = "https://prod.uidapi.com/v2/token/refresh";
       expect(xhrMock.open).toHaveBeenLastCalledWith("POST", url, true);
       expect(xhrMock.send).toHaveBeenLastCalledWith(identity.refresh_token);
       xhrMock.onreadystatechange();
       expect(cryptoMock.subtle.importKey).toHaveBeenCalled();
     });
 
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in initialising state', () => {
-      expect(uid2).toBeInInitialisingState();
+    test('should be in initialising state', () => {
+      (expect(uid2) as any).toBeInTemporarilyUnavailableState();
     });
   });
   describe('when uid2 v1 cookie with expired but refreshable identity is available', () => {
@@ -271,9 +286,10 @@ describe('when initialised without identity', () => {
       uid2.init({ callback: callback });
     });
 
-    it('should initiate token refresh', () => {
+    test('should initiate token refresh', () => {
+      const cryptoMock = new mocks.CryptoMock(sdkWindow);
       expect(xhrMock.send).toHaveBeenCalledTimes(1);
-      let url = "https://prod.uidapi.com/v2/token/refresh";
+      const url = "https://prod.uidapi.com/v2/token/refresh";
       expect(xhrMock.open).toHaveBeenLastCalledWith("POST", url, true);
       expect(xhrMock.send).toHaveBeenLastCalledWith(identity.refresh_token);
       xhrMock.onreadystatechange();
@@ -285,25 +301,27 @@ describe('when initialised without identity', () => {
 describe('when initialised with specific identity', () => {
   describe('when invalid identity is supplied', () => {
     beforeEach(() => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
       uid2.init({ callback: callback, identity: {} });
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: sdk.UID2.IdentityStatus.INVALID,
+        status: UID2.IdentityStatus.INVALID,
       }));
     });
-    it('should clear cookie', () => {
+    test('should clear cookie', () => {
       expect(getUid2Cookie()).toBeUndefined();
     });
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in unavailable state', () => {
-      expect(uid2).toBeInUnavailableState();
+    test('should be in unavailable state', () => {
+      (expect(uid2) as any).toBeInUnavailableState();
     });
   });
 
@@ -314,22 +332,22 @@ describe('when initialised with specific identity', () => {
       uid2.init({ callback: callback, identity: identity });
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: identity.advertising_token,
         advertising_token: identity.advertising_token,
-        status: sdk.UID2.IdentityStatus.ESTABLISHED,
+        status: UID2.IdentityStatus.ESTABLISHED,
       }));
     });
-    it('should set cookie', () => {
+    test('should set cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(identity.advertising_token);
     });
-    it('should set refresh timer', () => {
+    test('should set refresh timer', () => {
       expect(setTimeout).toHaveBeenCalledTimes(1);
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in available state', () => {
-      expect(uid2).toBeInAvailableState(identity.advertising_token);
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState(identity.advertising_token);
     });
   });
 
@@ -346,22 +364,22 @@ describe('when initialised with specific identity', () => {
       uid2.init({ callback: callback, identity: initIdentity });
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: initIdentity.advertising_token,
         advertising_token: initIdentity.advertising_token,
-        status: sdk.UID2.IdentityStatus.ESTABLISHED,
+        status: UID2.IdentityStatus.ESTABLISHED,
       }));
     });
-    it('should set cookie', () => {
+    test('should set cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(initIdentity.advertising_token);
     });
-    it('should set refresh timer', () => {
+    test('should set refresh timer', () => {
       expect(setTimeout).toHaveBeenCalledTimes(1);
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in available state', () => {
-      expect(uid2).toBeInAvailableState(initIdentity.advertising_token);
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState(initIdentity.advertising_token);
     });
   });
 });
@@ -385,22 +403,22 @@ describe('when still valid identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    test('should invoke the callback', () => {
+      expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
         advertisingToken: updatedIdentity.advertising_token,
         advertising_token: updatedIdentity.advertising_token,
-        status: sdk.UID2.IdentityStatus.REFRESHED,
+        status: UID2.IdentityStatus.REFRESHED,
       }));
     });
-    it('should set cookie', () => {
+    test('should set cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(updatedIdentity.advertising_token);
     });
-    it('should set refresh timer', () => {
+    test('should set refresh timer', () => {
       expect(setTimeout).toHaveBeenCalledTimes(1);
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in available state', () => {
-      expect(uid2).toBeInAvailableState(updatedIdentity.advertising_token);
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState(updatedIdentity.advertising_token);
     });
   });
 
@@ -410,22 +428,22 @@ describe('when still valid identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: originalIdentity.advertising_token,
         advertising_token: originalIdentity.advertising_token,
-        status: sdk.UID2.IdentityStatus.ESTABLISHED,
+        status: UID2.IdentityStatus.ESTABLISHED,
       }));
     });
-    it('should set cookie', () => {
+    test('should set cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(originalIdentity.advertising_token);
     });
-    it('should set refresh timer', () => {
+    test('should set refresh timer', () => {
       expect(setTimeout).toHaveBeenCalledTimes(1);
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in available state', () => {
-      expect(uid2).toBeInAvailableState(originalIdentity.advertising_token);
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState(originalIdentity.advertising_token);
     });
   });
 
@@ -435,22 +453,22 @@ describe('when still valid identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    test('should invoke the callback', () => {
+      expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: sdk.UID2.IdentityStatus.OPTOUT,
+        status: UID2.IdentityStatus.OPTOUT,
       }));
     });
-    it('should not set cookie', () => {
+    test('should not set cookie', () => {
       expect(getUid2Cookie()).toBeUndefined();
     });
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in unavailable state', () => {
-      expect(uid2).toBeInUnavailableState();
+    test('should be in unavailable state', () => {
+      (expect(uid2) as any).toBeInUnavailableState();
     });
   });
 
@@ -461,22 +479,22 @@ describe('when still valid identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    test('should invoke the callback', () => {
+      expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: sdk.UID2.IdentityStatus.REFRESH_EXPIRED,
+        status: UID2.IdentityStatus.REFRESH_EXPIRED,
       }));
     });
-    it('should not set cookie', () => {
+    test('should not set cookie', () => {
       expect(getUid2Cookie()).toBeUndefined();
     });
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in unavailable state', () => {
-      expect(uid2).toBeInUnavailableState();
+    test('should be in unavailable state', () => {
+      (expect(uid2) as any).toBeInUnavailableState();
     });
   });
 
@@ -486,22 +504,22 @@ describe('when still valid identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: originalIdentity.advertising_token,
         advertising_token: originalIdentity.advertising_token,
-        status: sdk.UID2.IdentityStatus.ESTABLISHED,
+        status: UID2.IdentityStatus.ESTABLISHED,
       }));
     });
-    it('should set cookie', () => {
+    test('should set cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(originalIdentity.advertising_token);
     });
-    it('should set refresh timer', () => {
+    test('should set refresh timer', () => {
       expect(setTimeout).toHaveBeenCalledTimes(1);
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in available state', () => {
-      expect(uid2).toBeInAvailableState(originalIdentity.advertising_token);
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState(originalIdentity.advertising_token);
     });
   });
 
@@ -511,22 +529,22 @@ describe('when still valid identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: originalIdentity.advertising_token,
         advertising_token: originalIdentity.advertising_token,
-        status: sdk.UID2.IdentityStatus.ESTABLISHED,
+        status: UID2.IdentityStatus.ESTABLISHED,
       }));
     });
-    it('should set cookie', () => {
+    test('should set cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(originalIdentity.advertising_token);
     });
-    it('should set refresh timer', () => {
+    test('should set refresh timer', () => {
       expect(setTimeout).toHaveBeenCalledTimes(1);
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in available state', () => {
-      expect(uid2).toBeInAvailableState(originalIdentity.advertising_token);
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState(originalIdentity.advertising_token);
     });
   });
 
@@ -536,22 +554,22 @@ describe('when still valid identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: originalIdentity.advertising_token,
         advertising_token: originalIdentity.advertising_token,
-        status: sdk.UID2.IdentityStatus.ESTABLISHED,
+        status: UID2.IdentityStatus.ESTABLISHED,
       }));
     });
-    it('should set cookie', () => {
+    test('should set cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(originalIdentity.advertising_token);
     });
-    it('should set refresh timer', () => {
+    test('should set refresh timer', () => {
       expect(setTimeout).toHaveBeenCalledTimes(1);
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in available state', () => {
-      expect(uid2).toBeInAvailableState(originalIdentity.advertising_token);
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState(originalIdentity.advertising_token);
     });
   });
 
@@ -561,22 +579,22 @@ describe('when still valid identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: originalIdentity.advertising_token,
         advertising_token: originalIdentity.advertising_token,
-        status: sdk.UID2.IdentityStatus.ESTABLISHED,
+        status: UID2.IdentityStatus.ESTABLISHED,
       }));
     });
-    it('should set cookie', () => {
+    test('should set cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(originalIdentity.advertising_token);
     });
-    it('should set refresh timer', () => {
+    test('should set refresh timer', () => {
       expect(setTimeout).toHaveBeenCalledTimes(1);
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in available state', () => {
-      expect(uid2).toBeInAvailableState(originalIdentity.advertising_token);
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState(originalIdentity.advertising_token);
     });
   });
 
@@ -587,22 +605,22 @@ describe('when still valid identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    test('should invoke the callback', () => {
+      expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: sdk.UID2.IdentityStatus.REFRESH_EXPIRED,
+        status: UID2.IdentityStatus.REFRESH_EXPIRED,
       }));
     });
-    it('should not set cookie', () => {
+    test('should not set cookie', () => {
       expect(getUid2Cookie()).toBeUndefined();
     });
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in unavailable state', () => {
-      expect(uid2).toBeInUnavailableState();
+    test('should be in unavailable state', () => {
+      (expect(uid2) as any).toBeInUnavailableState();
     });
   });
 });
@@ -627,22 +645,22 @@ describe('when expired identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    test('should invoke the callback', () => {
+      expect(callback).toHaveBeenNthCalledWith(2, expect.objectContaining({
         advertisingToken: updatedIdentity.advertising_token,
         advertising_token: updatedIdentity.advertising_token,
-        status: sdk.UID2.IdentityStatus.REFRESHED,
+        status: UID2.IdentityStatus.REFRESHED,
       }));
     });
-    it('should set cookie', () => {
+    test('should set cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(updatedIdentity.advertising_token);
     });
-    it('should set refresh timer', () => {
+    test('should set refresh timer', () => {
       expect(setTimeout).toHaveBeenCalledTimes(1);
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in available state', () => {
-      expect(uid2).toBeInAvailableState(updatedIdentity.advertising_token);
+    test('should be in available state', () => {
+      (expect(uid2) as any).toBeInAvailableState(updatedIdentity.advertising_token);
     });
   });
 
@@ -652,22 +670,22 @@ describe('when expired identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    test('should invoke the callback', () => {
+      expect(callback).toHaveBeenLastCalledWith(expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: sdk.UID2.IdentityStatus.OPTOUT,
+        status: UID2.IdentityStatus.OPTOUT,
       }));
     });
-    it('should not set cookie', () => {
+    test('should not set cookie', () => {
       expect(getUid2Cookie()).toBeUndefined();
     });
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in unavailable state', () => {
-      expect(uid2).toBeInUnavailableState();
+    test('should be in unavailable state', () => {
+      (expect(uid2) as any).toBeInUnavailableState();
     });
   });
 
@@ -678,22 +696,22 @@ describe('when expired identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    test('should invoke the callback', () => {
+      expect(callback).toHaveBeenNthCalledWith(2, expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: sdk.UID2.IdentityStatus.REFRESH_EXPIRED,
+        status: UID2.IdentityStatus.REFRESH_EXPIRED,
       }));
     });
-    it('should not set cookie', () => {
+    test('should not set cookie', () => {
       expect(getUid2Cookie()).toBeUndefined();
     });
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in unavailable state', () => {
-      expect(uid2).toBeInUnavailableState();
+    test('should be in unavailable state', () => {
+      (expect(uid2) as any).toBeInUnavailableState();
     });
   });
 
@@ -703,22 +721,22 @@ describe('when expired identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
+    test('should invoke the callback', () => {
       expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: sdk.UID2.IdentityStatus.EXPIRED,
+        status: UID2.IdentityStatus.EXPIRED,
       }));
     });
-    it('should set cookie', () => {
+    test('should set cookie', () => {
       expect(getUid2Cookie().advertising_token).toBe(originalIdentity.advertising_token);
     });
-    it('should set refresh timer', () => {
+    test('should set refresh timer', () => {
       expect(setTimeout).toHaveBeenCalledTimes(1);
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in temporarily unavailable state', () => {
-      expect(uid2).toBeInTemporarilyUnavailableState();
+    test('should be in temporarily unavailable state', () => {
+      (expect(uid2) as any).toBeInTemporarilyUnavailableState();
     });
   });
 
@@ -729,34 +747,34 @@ describe('when expired identity is refreshed on init', () => {
       xhrMock.onreadystatechange(new Event(''));
     });
 
-    it('should invoke the callback', () => {
-      expect(callback).toHaveBeenNthCalledWith(1, expect.objectContaining({
+    test('should invoke the callback', () => {
+      expect(callback).toHaveBeenNthCalledWith(2, expect.objectContaining({
         advertisingToken: undefined,
         advertising_token: undefined,
-        status: sdk.UID2.IdentityStatus.REFRESH_EXPIRED,
+        status: UID2.IdentityStatus.REFRESH_EXPIRED,
       }));
     });
-    it('should not set cookie', () => {
+    test('should not set cookie', () => {
       expect(getUid2Cookie()).toBeUndefined();
     });
-    it('should not set refresh timer', () => {
+    test('should not set refresh timer', () => {
       expect(setTimeout).not.toHaveBeenCalled();
       expect(clearTimeout).not.toHaveBeenCalled();
     });
-    it('should be in unavailable state', () => {
-      expect(uid2).toBeInUnavailableState();
+    test('should be in unavailable state', () => {
+      (expect(uid2) as any).toBeInUnavailableState();
     });
   });
 });
 
 describe('abort()', () => {
-  it('should not clear cookie', () => {
+  test('should not clear cookie', () => {
     const identity = makeIdentityV2();
     setUid2Cookie(identity);
     uid2.abort();
     expect(getUid2Cookie().advertising_token).toBe(identity.advertising_token);
   });
-  it('should abort refresh timer', () => {
+  test('should abort refresh timer', () => {
     uid2.init({ callback: callback, identity: makeIdentityV2() });
     expect(setTimeout).toHaveBeenCalledTimes(1);
     expect(clearTimeout).not.toHaveBeenCalled();
@@ -764,7 +782,7 @@ describe('abort()', () => {
     expect(setTimeout).toHaveBeenCalledTimes(1);
     expect(clearTimeout).toHaveBeenCalledTimes(1);
   });
-  it('should not abort refresh timer if not timer is set', () => {
+  test('should not abort refresh timer if not timer is set', () => {
     uid2.init({ callback: callback, identity: makeIdentityV2({ refresh_from: Date.now() - 100000 }) });
     expect(setTimeout).not.toHaveBeenCalled();
     expect(clearTimeout).not.toHaveBeenCalled();
@@ -772,7 +790,7 @@ describe('abort()', () => {
     expect(setTimeout).not.toHaveBeenCalled();
     expect(clearTimeout).not.toHaveBeenCalled();
   });
-  it('should abort refresh token request', () => {
+  test('should abort refresh token request', () => {
     uid2.init({ callback: callback, identity: makeIdentityV2({ refresh_from: Date.now() - 100000 }) });
     expect(xhrMock.send).toHaveBeenCalledTimes(1);
     expect(xhrMock.abort).not.toHaveBeenCalled();
@@ -780,19 +798,19 @@ describe('abort()', () => {
     expect(xhrMock.send).toHaveBeenCalledTimes(1);
     expect(xhrMock.abort).toHaveBeenCalledTimes(1);
   });
-  it('should prevent subsequent calls to init()', () => {
+  test('should prevent subsequent calls to init()', () => {
     uid2.abort();
     expect(() => uid2.init({ callback: () => {} })).toThrow();
   });
 });
 
 describe('disconnect()', () => {
-  it('should clear cookie', () => {
+  test('should clear cookie', () => {
     setUid2Cookie(makeIdentityV2());
     uid2.disconnect();
     expect(getUid2Cookie()).toBeUndefined();
   });
-  it('should abort refresh timer', () => {
+  test('should abort refresh timer', () => {
     uid2.init({ callback: callback, identity: makeIdentityV2() });
     expect(setTimeout).toHaveBeenCalledTimes(1);
     expect(clearTimeout).not.toHaveBeenCalled();
@@ -800,7 +818,7 @@ describe('disconnect()', () => {
     expect(setTimeout).toHaveBeenCalledTimes(1);
     expect(clearTimeout).toHaveBeenCalledTimes(1);
   });
-  it('should abort refresh token request', () => {
+  test('should abort refresh token request', () => {
     uid2.init({ callback: callback, identity: makeIdentityV2({ refresh_from: Date.now() - 100000 }) });
     expect(xhrMock.send).toHaveBeenCalledTimes(1);
     expect(xhrMock.abort).not.toHaveBeenCalled();
@@ -808,18 +826,13 @@ describe('disconnect()', () => {
     expect(xhrMock.send).toHaveBeenCalledTimes(1);
     expect(xhrMock.abort).toHaveBeenCalledTimes(1);
   });
-  it('should not invoke callback after aborting refresh token request', () => {
-    uid2.init({ callback: callback, identity: makeIdentityV2({ refresh_from: Date.now() - 100000 }) });
-    uid2.disconnect();
-    expect(callback).not.toHaveBeenCalled();
-  });
-  it('should prevent subsequent calls to init()', () => {
+  test('should prevent subsequent calls to init()', () => {
     uid2.disconnect();
     expect(() => uid2.init({ callback: () => {} })).toThrow();
   });
-  it('should switch to unavailable state', () => {
+  test('should switch to unavailable state', () => {
     uid2.init({ callback: callback, identity: makeIdentityV2() });
     uid2.disconnect();
-    expect(uid2).toBeInUnavailableState();
+    (expect(uid2) as any).toBeInUnavailableState();
   });
 });

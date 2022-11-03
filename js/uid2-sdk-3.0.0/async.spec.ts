@@ -21,22 +21,24 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 
-const sdk = require('../../static/js/uid2-sdk-2.0.0.js');
-const mocks = require('../mocks.js');
+import { afterEach,beforeEach, describe, expect, jest, test } from '@jest/globals';
 
-let callback;
-let uid2;
-let xhrMock;
-let _cryptoMock;
+import * as mocks from '../mocks.js';
+import { __uid2InternalHandleScriptLoad,sdkWindow, UID2 } from '../uid2-sdk-3.0.0';
+import { EventType } from '../uid2CallbackManager';
 
+let callback: any;
+let uid2: UID2;
+let xhrMock: any;
+let _cryptoMock: any;
 mocks.setupFakeTime();
 
 beforeEach(() => {
   callback = jest.fn();
-  uid2 = new sdk.UID2();
-  xhrMock = new mocks.XhrMock(sdk.window);
-  _cryptoMock = new mocks.CryptoMock(sdk.window);
-  mocks.setCookieMock(sdk.window.document);
+  uid2 = new UID2();
+  xhrMock = new mocks.XhrMock(window);
+  _cryptoMock = new mocks.CryptoMock(window);
+  mocks.setCookieMock(window.document);
 });
 
 afterEach(() => {
@@ -48,19 +50,20 @@ const makeIdentity = mocks.makeIdentityV2;
 describe('when getAdvertisingTokenAsync is called before init', () => {
   describe('when initialising with a valid identity', () => {
     const identity = makeIdentity();
-    it('it should resolve promise after invoking the callback', () => {
-      const p = uid2.getAdvertisingTokenAsync().then(token => {
+    test('it should resolve promise after invoking the callback', () => {
+      const p = uid2.getAdvertisingTokenAsync().then((token: any) => {
         expect(callback).toHaveBeenCalled();
         return token;
       });
       uid2.init({ callback: callback, identity: identity });
+      jest.runAllTimers();
       return expect(p).resolves.toBe(identity.advertising_token);
     });
   });
 
   describe('when initialising with an invalid identity', () => {
-    it('it should reject promise after invoking the callback', () => {
-      const p = uid2.getAdvertisingTokenAsync().catch(e => {
+    test('it should reject promise after invoking the callback', () => {
+      const p = uid2.getAdvertisingTokenAsync().catch((e: any) => {
         expect(callback).toHaveBeenCalled();
         throw e;
       });
@@ -69,29 +72,12 @@ describe('when getAdvertisingTokenAsync is called before init', () => {
     });
   });
 
-  describe('when auto refresh fails due to optout', () => {
-    it('it should reject promise after invoking the callback', () => {
-      const originalIdentity = makeIdentity({
-        refresh_from: Date.now() - 100000,
-      });
-      const p = uid2.getAdvertisingTokenAsync().catch(e => {
-        expect(callback).toHaveBeenCalled();
-        throw e;
-      });
-      uid2.init({ callback: callback, identity: originalIdentity });
-      xhrMock.responseText = JSON.stringify({ status: 'optout' });
-      xhrMock.status = 400;
-      xhrMock.onreadystatechange(new Event(''));
-      return expect(p).rejects.toBeInstanceOf(Error);
-    });
-  });
-
   describe('when auto refresh fails, but identity still valid', () => {
-    it('it should reject promise after invoking the callback', () => {
+    test('it should reject promise after invoking the callback', () => {
       const originalIdentity = makeIdentity({
         refresh_from: Date.now() - 100000,
       });
-      const p = uid2.getAdvertisingTokenAsync().then(token => {
+      const p = uid2.getAdvertisingTokenAsync().then((token: any) => {
         expect(callback).toHaveBeenCalled();
         return token;
       });
@@ -103,12 +89,12 @@ describe('when getAdvertisingTokenAsync is called before init', () => {
   });
 
   describe('when auto refresh fails, but identity already expired', () => {
-    it('it should reject promise after invoking the callback', () => {
+    test('it should reject promise after invoking the callback', () => {
       const originalIdentity = makeIdentity({
         refresh_from: Date.now() - 100000,
         identity_expires: Date.now() - 1
       });
-      const p = uid2.getAdvertisingTokenAsync().catch(e => {
+      const p = uid2.getAdvertisingTokenAsync().catch((e: any) => {
         expect(callback).toHaveBeenCalled();
         throw e;
       });
@@ -121,7 +107,7 @@ describe('when getAdvertisingTokenAsync is called before init', () => {
 
   describe('when giving multiple promises', () => {
     const identity = makeIdentity();
-    it('it should resolve all promises', () => {
+    test('it should resolve all promises', () => {
       const p1 = uid2.getAdvertisingTokenAsync();
       const p2 = uid2.getAdvertisingTokenAsync();
       const p3 = uid2.getAdvertisingTokenAsync();
@@ -134,21 +120,21 @@ describe('when getAdvertisingTokenAsync is called before init', () => {
 describe('when getAdvertisingTokenAsync is called after init completed', () => {
   describe('when initialised with a valid identity', () => {
     const identity = makeIdentity();
-    it('it should resolve promise', () => {
+    test('it should resolve promise', () => {
       uid2.init({ callback: callback, identity: identity });
       return expect(uid2.getAdvertisingTokenAsync()).resolves.toBe(identity.advertising_token);
     });
   });
 
   describe('when initialisation failed', () => {
-    it('it should reject promise', () => {
+    test('it should reject promise', () => {
       uid2.init({ callback: callback });
       return expect(uid2.getAdvertisingTokenAsync()).rejects.toBeInstanceOf(Error);
     });
   });
 
   describe('when identity is temporarily not available', () => {
-    it('it should reject promise', () => {
+    test('it should reject promise', () => {
       const originalIdentity = makeIdentity({
         refresh_from: Date.now() - 100000,
         identity_expires: Date.now() - 1
@@ -161,7 +147,7 @@ describe('when getAdvertisingTokenAsync is called after init completed', () => {
   });
 
   describe('when disconnect() has been called', () => {
-    it('it should reject promise', () => {
+    test('it should reject promise', () => {
       uid2.init({ callback: callback, identity: makeIdentity() });
       uid2.disconnect();
       return expect(uid2.getAdvertisingTokenAsync()).rejects.toBeInstanceOf(Error);
@@ -173,38 +159,42 @@ describe('when getAdvertisingTokenAsync is called before refresh on init complet
   const originalIdentity = makeIdentity({
     refresh_from: Date.now() - 100000,
   });
-  const updatedIdentity = makeIdentity({
-    advertising_token: 'updated_advertising_token'
-  });
-
   beforeEach(() => {
     uid2.init({ callback: callback, identity: originalIdentity });
   });
 
-  describe('when auto refresh completes successfully', () => {
-    it('it should resolve promise after invoking the callback', () => {
-      const p = uid2.getAdvertisingTokenAsync().then(token => {
-        expect(callback).toHaveBeenCalled();
-        return token;
-      });
-      xhrMock.responseText = btoa(JSON.stringify({ status: 'success', body: updatedIdentity }));
-      xhrMock.onreadystatechange(new Event(''));
-      return expect(p).resolves.toBe(updatedIdentity.advertising_token);
-    });
-  });
-
-  describe('when disconnect() has been called', () => {
-    it('it should reject promise', () => {
-      const p = uid2.getAdvertisingTokenAsync();
-      uid2.disconnect();
-      return expect(p).rejects.toBeInstanceOf(Error);
-    });
-  });
-
   describe('when promise obtained after disconnect', () => {
-    it('it should reject promise', () => {
+    test('it should reject promise', () => {
       uid2.disconnect();
       return expect(uid2.getAdvertisingTokenAsync()).rejects.toBeInstanceOf(Error);
     });
+  });
+});
+
+describe('when window.__uid2.init is called on SdkLoaded from a callback', () => {
+  const identity = makeIdentity();
+  // Reset window UID2 instance
+  const callback = jest.fn((eventType: EventType) => {
+    if (eventType === UID2.EventType.SdkLoaded) {
+      console.log('Trying');
+      try {
+        (sdkWindow.__uid2 as UID2).init({ identity });
+      } catch (ex) {
+        console.log(ex);
+        throw ex;
+      }
+      console.log('Succeeded');
+    }
+  });
+  test('the SDK should be initialized correctly', () => {
+    sdkWindow.__uid2 = { callbacks: [] };
+    sdkWindow.__uid2.callbacks!.push(callback);
+    expect(callback).toHaveBeenCalledTimes(0);
+    __uid2InternalHandleScriptLoad();
+    jest.runOnlyPendingTimers();
+    if (!(sdkWindow.__uid2 instanceof UID2)) throw Error('UID2 should be ready to use by the time SdkLoaded is triggered.');
+    expect(callback).toHaveBeenNthCalledWith(1, UID2.EventType.SdkLoaded, expect.anything());
+    console.log(identity.advertising_token);
+    expect(sdkWindow.__uid2.getAdvertisingToken()).toBe(identity.advertising_token);
   });
 });

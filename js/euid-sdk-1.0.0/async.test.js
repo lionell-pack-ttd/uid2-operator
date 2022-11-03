@@ -27,7 +27,7 @@ const mocks = require('../mocks.js');
 let callback;
 let euid;
 let xhrMock;
-let cryptoMock;
+let _cryptoMock;
 
 mocks.setupFakeTime();
 
@@ -35,7 +35,7 @@ beforeEach(() => {
   callback = jest.fn();
   euid = new sdk.EUID();
   xhrMock = new mocks.XhrMock(sdk.window);
-  cryptoMock = new mocks.CryptoMock(sdk.window);
+  _cryptoMock = new mocks.CryptoMock(sdk.window);
   mocks.setCookieMock(sdk.window.document);
 });
 
